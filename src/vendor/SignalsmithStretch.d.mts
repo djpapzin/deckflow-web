@@ -1,0 +1,13 @@
+export interface StretchSchedule {
+  output?: number; input?: number; rate?: number; active?: boolean;
+  semitones?: number; loopStart?: number; loopEnd?: number;
+}
+export interface StretchNode extends AudioWorkletNode {
+  schedule(change: StretchSchedule): Promise<unknown>;
+  addBuffers(channels: Float32Array[], transfer?: ArrayBuffer[]): Promise<number>;
+  dropBuffers(): Promise<unknown>;
+  configure(config: {preset?: 'default' | 'cheaper'; blockMs?: number; intervalMs?: number}): Promise<unknown>;
+  latency(): Promise<number>;
+}
+declare function SignalsmithStretch(context: AudioContext, options?: AudioWorkletNodeOptions): Promise<StretchNode>;
+export default SignalsmithStretch;
