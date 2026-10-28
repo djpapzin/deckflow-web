@@ -9,5 +9,8 @@ export interface StretchNode extends AudioWorkletNode {
   configure(config: {preset?: 'default' | 'cheaper'; blockMs?: number; intervalMs?: number}): Promise<unknown>;
   latency(): Promise<number>;
 }
-declare function SignalsmithStretch(context: AudioContext, options?: AudioWorkletNodeOptions): Promise<StretchNode>;
+declare const SignalsmithStretch: {
+  (context: AudioContext, options?: AudioWorkletNodeOptions): Promise<StretchNode>;
+  moduleUrl?: string;
+};
 export default SignalsmithStretch;

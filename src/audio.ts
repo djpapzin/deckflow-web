@@ -1,7 +1,12 @@
 // Shared audio clock: two pitch-preserving sources feed four mono mixer inputs.
 import WebRenderer from '@elemaudio/web-renderer';
 import SignalsmithStretch from './vendor/SignalsmithStretch.mjs';
+import stretchWorkletUrl from './vendor/SignalsmithStretch.mjs?url';
 import { DeckPlayer } from './playback';
+
+// Serve the original worklet module directly. Serializing the bundled factory
+// with Function.toString loses its closure bindings after production minification.
+SignalsmithStretch.moduleUrl = stretchWorkletUrl;
 
 export interface AudioRuntime {
   ctx: AudioContext;
