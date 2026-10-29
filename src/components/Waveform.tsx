@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TrackPeaks } from '../track';
 import type { BeatGrid } from '../bpmAnalysis';
+import { waveformView } from '../waveformView';
 
 interface Props {
   peaks: TrackPeaks | null;
@@ -82,12 +83,9 @@ export default function Waveform({ peaks, position, onSeek, cueNorm, loopIn, loo
   // The visible bucket window, centered on the playhead and clamped to the track.
   const windowFor = useCallback(
     (totalBuckets: number) => {
-      const win = Math.max(1, Math.round(totalBuckets * windowFrac));
-      const center = position * totalBuckets;
-      const start = Math.max(0, Math.min(totalBuckets - win, center - win / 2));
-      return { start, win };
+      return waveformView(totalBuckets, windowFrac, position, !!detailSeconds);
     },
-    [position, windowFrac],
+    [position, windowFrac, detailSeconds],
   );
 
   const draw = useCallback(() => {
@@ -124,7 +122,10 @@ export default function Waveform({ peaks, position, onSeek, cueNorm, loopIn, loo
     const { start, win } = windowFor(total);
 
     // Blit just the visible slice, scaled to the canvas.
-    ctx.drawImage(cache, start, 0, win, cache.height, 0, 0, cssW, cssH);
+    const sourceStart = Math.max(0, start);
+    const sourceEnd = Math.min(total, start + win);
+    if (sourceEnd > sourceStart) ctx.drawImage(cache, sourceStart, 0, sourceEnd - sourceStart, cache.height,
+      (sourceStart - start) / win * cssW, 0, (sourceEnd - sourceStart) / win * cssW, cssH);
 
     const xFor = (norm: number) => ((norm * total - start) / win) * cssW;
     if (grid && duration > 0) {

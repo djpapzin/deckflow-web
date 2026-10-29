@@ -5,6 +5,7 @@ import { buildDeckSignal } from './deck';
 import { useDeck } from './useDeck';
 import DeckPanel from './components/DeckPanel';
 import Waveform from './components/Waveform';
+import { isTransportSpace } from './keyboard';
 import DeckControls from './components/DeckControls';
 import Mixer from './components/Mixer';
 import TrackBrowser, { fileId, type SessionTrack } from './components/TrackBrowser';
@@ -43,9 +44,7 @@ export default function App() {
   keyboardDeck.current = selectedDeck === 'A' ? deckA : deckB;
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.code !== 'Space' || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest('input, textarea, select, .cue-btn, summary, [contenteditable="true"]')) return;
+      if (!isTransportSpace(event)) return;
       event.preventDefault();
       void keyboardDeck.current.togglePlay().catch(err => setError(String(err)));
     };
@@ -193,7 +192,7 @@ export default function App() {
           <Waveform peaks={deck.state.track?.peaks ?? null} position={deck.position} onSeek={deck.seek}
             cueNorm={deck.state.cueNorm} hotCues={deck.state.hotCues} loopIn={deck.state.loopIn} loopOut={deck.state.loopOut}
             loopEnabled={deck.state.loopEnabled} label={`Deck ${deck.state.id} scrolling rhythm waveform`}
-            grid={deck.grid} duration={deck.state.track?.duration ?? 0} detailSeconds={8}
+            grid={deck.grid} duration={deck.state.track?.duration ?? 0} detailSeconds={8 * deck.state.tempo}
             color={deck.state.id === 'A' ? '#36a9ff' : '#ff5265'} />
         </div>)}
       </section>

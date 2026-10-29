@@ -22,10 +22,24 @@ test('platter renders actual forward and reverse stereo PCM, holds silently, and
   assert.ok(forward[0][100]>forward[0][1]);assert.equal(forward[1][50],-forward[0][50]);
   send({type:'move',position:.3,seconds:.02});const reverse=render();
   assert.ok(reverse[0][100]<reverse[0][1]);
-  assert.ok(render()[0].every(x=>x===0));
+  assert.ok(render()[0].slice(4).every(x=>x===0));
   send({type:'stop'});assert.ok(render()[0].every(x=>x===0));
 });
 test('scratching beyond either end emits finite silence',()=>{
   const {send,render}=processor();send({type:'load',channels:[new Float32Array(100),new Float32Array(100)]});
   for(const position of [-1,10]) {send({type:'start',position});send({type:'move',position:position+1,seconds:.01});assert.ok(render()[0].every(Number.isFinite));}
+});
+
+test('stationary pointer movement stays silent rather than emitting a DC pulse',()=>{
+  const {send,render}=processor();
+  send({type:'load',channels:[new Float32Array(1000).fill(.8),new Float32Array(1000).fill(.8)]});
+  send({type:'start',position:.4});send({type:'move',position:.4,seconds:.02});
+  assert.ok(render()[0].every(x=>x===0));
+});
+test('scratch attack and stop ramp rather than abruptly switching full amplitude',()=>{
+  const {send,render}=processor();
+  send({type:'load',channels:[new Float32Array(1000).fill(.9),new Float32Array(1000).fill(.9)]});
+  send({type:'start',position:.2});send({type:'move',position:.8,seconds:.05});
+  const moving=render()[0]; assert.ok(moving[0]<.4); assert.ok(moving[4]>.8);
+  send({type:'stop'});const stopped=render()[0]; assert.ok(stopped[0]<moving[127]);assert.ok(stopped.slice(4).every(x=>x===0));
 });
