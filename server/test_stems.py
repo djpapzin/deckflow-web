@@ -45,7 +45,7 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(code,202);self.assertEqual(json.loads(body)['id'],key)
         self.assertEqual(self.call('POST','/api/stems?quality=wrong',data)[0],400)
 
-    def test_connection_window_is_local_and_not_frameable(self):
+    def test_connection_window_is_local_and_only_frameable_by_dev(self):
         code,body,headers=self.call('GET','/connect')
         self.assertEqual(code,200)
         self.assertEqual(headers['Content-Security-Policy'],'frame-ancestors https://dev.deckflow.djpapzin.com')

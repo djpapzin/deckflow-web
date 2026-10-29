@@ -29,16 +29,13 @@ export function connectStemBridge(signal?:AbortSignal):Promise<void>{
     const timer=setTimeout(()=>finish(new Error('Mac connection window did not respond')),30000);
     connected=()=>finish();failed=()=>finish(new Error('Mac service is not ready'));
     signal?.addEventListener('abort',cancel,{once:true});
-    popup=window.open(`${MAC_ORIGIN}/connect?origin=${encodeURIComponent(location.origin)}&channel=${encodeURIComponent(channel)}`,'deckflow-mac-stems','popup,width=620,height=400');
-    if(!popup){
-      panel?.remove();panel=document.createElement('iframe');
-      panel.title='DeckFlow Mac stem connection';
-      panel.src=`${MAC_ORIGIN}/connect?origin=${encodeURIComponent(location.origin)}&channel=${encodeURIComponent(channel)}`;
-      panel.setAttribute('sandbox','allow-scripts allow-same-origin');
-      panel.style.cssText='position:fixed;bottom:12px;right:12px;width:380px;height:180px;max-width:90vw;border:1px solid #36a9ff;border-radius:8px;z-index:1000;background:#15191e';
-      document.body.appendChild(panel);popup=panel.contentWindow;
-      if(!popup)finish(new Error('Could not open the Mac connection panel.'));
-    }
+    panel?.remove();panel=document.createElement('iframe');
+    panel.title='DeckFlow Mac stem connection';
+    panel.src=`${MAC_ORIGIN}/connect?origin=${encodeURIComponent(location.origin)}&channel=${encodeURIComponent(channel)}`;
+    panel.setAttribute('sandbox','allow-scripts allow-same-origin');
+    panel.style.cssText='position:fixed;bottom:12px;right:12px;width:380px;height:180px;max-width:90vw;border:1px solid #36a9ff;border-radius:8px;z-index:1000;background:#15191e';
+    document.body.appendChild(panel);popup=panel.contentWindow;
+    if(!popup)finish(new Error('Could not open the Mac connection panel.'));
   });
 }
 export function bridgeFetch(path:string,init:RequestInit={}):Promise<Response>{

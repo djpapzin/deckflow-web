@@ -3,7 +3,7 @@ import {bridgeReady, connectStemBridge, bridgeFetch} from './stemBridge';
 export const STEM_BASE = location.port === '8787' ? '' : 'http://127.0.0.1:8787';
 let connected = !STEM_BASE;
 export function localStemFetch(path: string, init: RequestInit = {}) {
-  if (STEM_BASE && bridgeReady()) return bridgeFetch(path,init);
+  if (STEM_BASE && location.origin === 'https://dev.deckflow.djpapzin.com') return bridgeFetch(path,init);
   return fetch(`${STEM_BASE}${path}`, { ...init, targetAddressSpace:'loopback' } as RequestInit);
 }
 export async function connectMacStems(signal?: AbortSignal) {
@@ -17,6 +17,10 @@ export async function connectMacStems(signal?: AbortSignal) {
   connected = true;
 }
 export async function requireStemConnection() {
+  if (location.origin === 'https://dev.deckflow.djpapzin.com') {
+    if (bridgeReady()) return;
+    throw new Error('Click CONNECT MAC STEMS to reopen the Mac connection panel, then retry stems.');
+  }
   if (connected) return;
   try {
     const permission = await navigator.permissions.query({name:'loopback-network'} as unknown as PermissionDescriptor);

@@ -110,3 +110,12 @@ The dev workflow requires the encrypted GitHub secrets `CLOUDFLARE_DEV_API_TOKEN
 (Pages Edit permission for the hosting account) and `CLOUDFLARE_ACCOUNT_ID`.
 Promote tested changes through a `dev` → `main` pull request after Codex review.
 Pushing `dev` does not deploy production.
+
+### Connect the hosted dev preview to your Mac
+
+Start the local stem companion, then click **CONNECT MAC STEMS** on the dev site.
+Keep the small Mac connection window or embedded panel open while using stems.
+The companion serves this panel from loopback only. It accepts messages only from
+the trusted dev origin and requesting window, and relays only fixed stem API paths.
+Audio and model processing remain on your Mac. No public tunnel is required.
+The localhost app continues to access the companion directly.
