@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+from contextlib import redirect_stdout
 import soundfile as sf
 import torch
 import audio_separator
@@ -13,11 +14,24 @@ import audio_separator
 sys.path.insert(0, str(Path(audio_separator.__file__).parent/'separator/uvr_lib_v5'))
 from audio_separator.separator.uvr_lib_v5.demucs.apply import apply_model
 from audio_separator.separator.uvr_lib_v5.demucs.pretrained import get_model
+from audio_separator.separator.uvr_lib_v5.demucs.repo import ModelLoadingError
+
+def load_local_model(models, model):
+    models = Path(models)
+    models.mkdir(parents=True, exist_ok=True)
+    try:
+        return get_model(name=Path(model).stem, repo=models)
+    except ModelLoadingError:
+        # The local Demucs loader does not provision YAML/checkpoints itself.
+        from audio_separator.separator import Separator
+        with redirect_stdout(sys.stderr):
+            Separator(model_file_dir=str(models)).download_model_files(model)
+        return get_model(name=Path(model).stem, repo=models)
 
 class Engine:
     def __init__(self, models, model):
         torch.set_num_threads(4)
-        self.model = get_model(name=Path(model).stem, repo=Path(models)).cpu().eval()
+        self.model = load_local_model(models, model).cpu().eval()
 
     def separate(self, source, destination, shifts=2):
         started = time.perf_counter()

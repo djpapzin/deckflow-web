@@ -23,11 +23,13 @@ export function useDeck(id: string, audioReady: boolean) {
   const [preparedQuality, setPreparedQuality] = useState<StemQuality>('fast');
   const stemAbort = useRef<AbortController | null>(null);
   const lastFile = useRef<File | null>(null);
+  const requestedQualityRef = useRef<StemQuality>('fast');
   const prepare = useCallback(async (file: File, gen: number, requestedQuality: StemQuality = 'fast') => {
     const rt = getRuntime(); if (!rt) return;
     stemAbort.current?.abort(); const controller = new AbortController(); stemAbort.current = controller;
     const token = rt.stems[id].token();
     const quality = requestedQuality;
+    requestedQualityRef.current = quality;
     setStemsFailed(false);
     setStemStatus('Connecting to local separator…');
     try {
@@ -135,7 +137,7 @@ export function useDeck(id: string, audioReady: boolean) {
     setStemMode('full'); setStemsReady(false);
     void prepare(lastFile.current, loadGen.current, 'best');
   };
-  const retryStems = () => { if (lastFile.current) void prepare(lastFile.current, loadGen.current); };
+  const retryStems = () => { if (lastFile.current) void prepare(lastFile.current, loadGen.current, requestedQualityRef.current); };
   const selectStems = (mode: StemMode) => {
     if (!stemsReady) return;
     setStemMode(mode); getRuntime()?.stems[id].select(mode); getRuntime()?.scratch[id].select(mode);
