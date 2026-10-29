@@ -48,8 +48,9 @@ class ApiTests(unittest.TestCase):
     def test_connection_window_is_local_and_not_frameable(self):
         code,body,headers=self.call('GET','/connect')
         self.assertEqual(code,200)
-        self.assertEqual(headers['X-Frame-Options'],'DENY')
-        self.assertIn(b"event.source!==window.opener",body)
+        self.assertEqual(headers['Content-Security-Policy'],'frame-ancestors https://dev.deckflow.djpapzin.com')
+        self.assertEqual(headers['Referrer-Policy'],'same-origin')
+        self.assertIn(b"event.source!==peer",body)
         self.assertIn(b"https://dev.deckflow.djpapzin.com",body)
         self.assertEqual(self.call('GET','/connect',host='evil.example')[0],403)
 
