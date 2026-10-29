@@ -54,20 +54,21 @@ test('cue is clamped; transport ignores commands when no track is loaded', () =>
     assert.equal(reducer(empty,action),empty);
   }
 });
-test('sync atomically seeks and changes rate, exits loops, and starts with a playing reference',()=>{
- const s={...initial(),playing:false,loopIn:.2,loopOut:.6,loopEnabled:true};
- const synced=reducer(s,{type:'SYNC',norm:.42,tempo:120/124,start:true});
- assert.equal(synced.baseNorm,.42);assert.equal(synced.tempo,120/124);
- assert.equal(synced.loopEnabled,false);assert.equal(synced.playing,true);
- assert.equal(synced.seekGen,s.seekGen+1);
- assert.equal(reducer({...s,playing:true},{type:'SYNC',norm:.3,tempo:1,start:false}).playing,true);
+test('Sync changes tempo and cue position without changing play/pause',()=>{
+ for(const playing of [false,true]) {
+  const s={...initial(),playing,loopIn:.2,loopOut:.6,loopEnabled:true};
+  const synced=reducer(s,{type:'SYNC',norm:.42,tempo:120/124});
+  assert.equal(synced.baseNorm,.42);assert.equal(synced.tempo,120/124);
+  assert.equal(synced.loopEnabled,false);assert.equal(synced.playing,playing);
+  assert.equal(synced.seekGen,s.seekGen+1);
+ }
 });
-test('follow mirrors pause/resume and tempo without resetting track position; Key Lock toggles independently',()=>{
- const s={...initial(),keyLock:true,loopEnabled:true};
- const paused=reducer(s,{type:'FOLLOW',tempo:1.1,playing:false});
- assert.equal(paused.tempo,1.1);assert.equal(paused.playing,false);assert.equal(paused.loopEnabled,false);
- assert.equal(paused.seekGen,s.seekGen);assert.equal(paused.baseNorm,s.baseNorm);
- const resumed=reducer(paused,{type:'FOLLOW',tempo:1.2,playing:true});
- assert.equal(resumed.playing,true);assert.equal(resumed.keyLock,true);
- assert.equal(reducer(resumed,{type:'KEY_LOCK'}).keyLock,false);
+test('continuous Sync follows tempo but never starts or pauses a deck',()=>{
+ for(const playing of [false,true]) {
+  const s={...initial(),playing,keyLock:true,loopEnabled:true};
+  const next=reducer(s,{type:'FOLLOW',tempo:1.1});
+  assert.equal(next.tempo,1.1);assert.equal(next.playing,playing);assert.equal(next.loopEnabled,false);
+  assert.equal(next.seekGen,s.seekGen);assert.equal(next.baseNorm,s.baseNorm);
+  assert.equal(next.keyLock,true);assert.equal(reducer(next,{type:'KEY_LOCK'}).keyLock,false);
+ }
 });

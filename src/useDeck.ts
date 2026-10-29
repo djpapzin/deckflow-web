@@ -134,14 +134,14 @@ export function useDeck(id: string, audioReady: boolean) {
     }
   };
   const alignBeat = () => { if (grid && state.track) manualGrid(grid.bpm, readPosition() * state.track.duration); };
-  const follow = (tempo: number, playing: boolean) => {
+  const follow = (tempo: number) => {
     const current = stateRef.current;
-    if (current.tempo !== tempo || current.playing !== playing || current.loopEnabled) {
-      dispatch({ type: 'FOLLOW', tempo, playing });
+    if (current.tempo !== tempo || current.loopEnabled) {
+      dispatch({ type: 'FOLLOW', tempo });
     }
   };
   const toggleKeyLock = () => dispatch({ type: 'KEY_LOCK' });
-  const syncTo = (norm: number, tempo: number, start: boolean) => transport({ type: 'SYNC', norm, tempo, start });
+  const syncTo = (norm: number, tempo: number) => transport({ type: 'SYNC', norm, tempo });
 
   return { state, position, level, load, togglePlay, seek, setVolume, setEq, setFilter,
     setTempo, setCue, jumpCue, loopAction, grid, analysisStatus, manualGrid, tapTempo,

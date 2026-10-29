@@ -16,7 +16,9 @@ or Edge is a good starting point; use headphones or speakers connected to your c
 2. Play Deck A, then press **Sync on Deck B** to lock B to A.
 3. Change A's tempo. B follows; **Key Lock ON** preserves pitch.
 4. Use the EQ, filters, channel volume and crossfader to mix.
-5. Press the lit Sync button to unlock. While locked, use the leader's Play/Pause.
+5. Sync never starts or pauses a song. Press Play on each deck yourself; tempo
+   stays linked, and beat alignment engages when both decks are playing. Press
+   the lit Sync button to unlock.
 
 Correct an inaccurate beat grid with **Track BPM**, **Tap tempo**, **÷2 / ×2**,
 and **Set beat here**. Waveforms support click-to-seek and wheel zoom. Drag the circular platter to seek

@@ -132,12 +132,12 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSync, s
       <div className="transport">
         <button className="btn cue-btn" onClick={deck.jumpCue} disabled={deck.state.cueNorm === null} title="Return to the saved cue">CUE</button>
         <button className={`btn play-btn ${deck.state.playing ? 'stop' : 'start'}`}
-          onClick={() => void deck.togglePlay().catch(err => setError(String(err)))} disabled={!track || syncLocked}
-          title={syncLocked ? `Play/Pause follows Deck ${leader}` : 'Play or pause this deck'}>
-          {syncLocked ? `LINK ${leader}` : deck.state.playing ? 'Ⅱ PAUSE' : '▶ PLAY'}
+          onClick={() => void deck.togglePlay().catch(err => setError(String(err)))} disabled={!track}
+          title="Play or pause this deck independently of Sync">
+          {deck.state.playing ? 'Ⅱ PAUSE' : '▶ PLAY'}
         </button>
         <button className={`btn sync-btn ${syncLocked ? 'locked' : ''}`} disabled={!canSync || loading} onClick={onSync}
-          aria-pressed={syncLocked} title="Lock to the other deck. Press again to unlock.">{syncLocked ? 'SYNC ●' : 'SYNC'}</button>
+          aria-pressed={syncLocked} title="Lock tempo and beats without starting playback. Press again to unlock.">{syncLocked ? 'SYNC ●' : 'SYNC'}</button>
       </div>
       {error && <p className="error">{error}</p>}
     </section>

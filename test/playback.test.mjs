@@ -34,7 +34,7 @@ test('seek and loop positions use the audio clock and survive loop exit',()=>{
  assert.ok(Math.abs(x.player.position(14.9)-8.5)<1e-9);
  assert.equal(positionAt({output:0,input:1,rate:1,active:false,loopStart:0,loopEnd:0},50),1);
 });
-test('shared clock stays phase-aligned for two minutes through tempo changes, pause/resume and seeking',()=>{
+test('shared clock stays phase-aligned for two minutes through tempo changes, independent pause/resume and seeking',()=>{
  const a=setup(),b=setup();let sA=state('A'),sB=state('B',120/124);
  const gridA={bpm:120,offset:.1,duration:600},gridB={bpm:124,offset:.13,duration:600};
  let force=true, maxError=0;
@@ -43,11 +43,14 @@ test('shared clock stays phase-aligned for two minutes through tempo changes, pa
   if(tick===100)sA={...sA,tempo:1.1};
   if(tick===300)sA={...sA,playing:false};
   if(tick===350)sA={...sA,playing:true};
+  if(tick===400)sB={...sB,playing:false};
+  if(tick===450)sB={...sB,playing:true};
   if(tick===500)sA={...sA,tempo:.9};
   if(tick===700)sA={...sA,seekGen:2,baseNorm:.3};
   const rate=gridA.bpm*sA.tempo/gridB.bpm;
-  sB={...sB,tempo:rate,playing:sA.playing};
+  sB={...sB,tempo:rate};
   a.player.apply(sA,when,'B');b.player.apply(sB,when,'B');
+  if (!sA.playing || !sB.playing) { force=true; continue; }
   const targetPos=b.player.position(when),leaderPos=a.player.position(when);
   const setting=syncSettings({...gridB,position:targetPos/600,tempo:rate},{...gridA,position:leaderPos/600,tempo:sA.tempo});
   assert.ok(setting);

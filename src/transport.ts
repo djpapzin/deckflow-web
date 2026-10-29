@@ -5,8 +5,8 @@ export type Action =
   | { type: 'LOAD'; track: DeckState['track'] }
   | { type: 'PLAY' | 'PAUSE' | 'END' }
   | { type: 'SEEK'; norm: number }
-  | { type: 'SYNC'; norm: number; tempo: number; start: boolean }
-  | { type: 'FOLLOW'; tempo: number; playing: boolean }
+  | { type: 'SYNC'; norm: number; tempo: number }
+  | { type: 'FOLLOW'; tempo: number }
   | { type: 'KEY_LOCK' }
   | { type: 'SET_VOLUME' | 'SET_FILTER' | 'SET_TEMPO'; value: number }
   | { type: 'SET_EQ'; band: EqBand; value: number }
@@ -29,8 +29,8 @@ export function reducer(s: DeckState, a: Action): DeckState {
     case 'PLAY': return s.track ? { ...s, playing: true } : s;
     case 'PAUSE': return { ...s, playing: false };
     case 'SYNC': return s.track ? { ...rebase(s, a.norm), tempo: a.tempo,
-      loopEnabled: false, playing: a.start || s.playing } : s;
-    case 'FOLLOW': return { ...s, tempo: a.tempo, playing: a.playing, loopEnabled: false };
+      loopEnabled: false } : s;
+    case 'FOLLOW': return { ...s, tempo: a.tempo, loopEnabled: false };
     case 'KEY_LOCK': return { ...s, keyLock: !s.keyLock };
     case 'SEEK': {
       if (!s.track) return s;

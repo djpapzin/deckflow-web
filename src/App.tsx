@@ -50,7 +50,7 @@ export default function App() {
     }
     if (!deckA.grid || !deckB.grid || !deckA.state.track || !deckB.state.track) return;
     setLock({ follower, aTrack: deckA.state.track.pathL, bTrack: deckB.state.track.pathL, token: performance.now() });
-    setSyncMessage(`Deck ${follower} is locked to Deck ${follower === 'A' ? 'B' : 'A'}. Change the leader’s tempo or press its Play/Pause. Press the lit Sync button to unlock.`);
+    setSyncMessage(`Deck ${follower} is locked to Deck ${follower === 'A' ? 'B' : 'A'}. Tempo follows the leader. Play and pause each deck yourself; Sync never starts a track. Press the lit Sync button to unlock.`);
   };
 
   // Both sources use one AudioContext clock and the same scheduled change time.
@@ -76,13 +76,22 @@ export default function App() {
     const when = rt.ctx.currentTime + rt.lookAhead;
     for (const deck of [a, b]) {
       const effective = activeLock?.follower === deck.state.id && rate !== null
-        ? { ...deck.state, tempo: rate, playing: leader.state.playing, loopEnabled: false } : deck.state;
+        ? { ...deck.state, tempo: rate, loopEnabled: false } : deck.state;
       rt.players[deck.state.id].apply(effective, when, activeLock?.follower ?? 'free');
-      if (activeLock?.follower === deck.state.id && rate !== null) deck.follow(rate, leader.state.playing);
+      if (activeLock?.follower === deck.state.id && rate !== null) deck.follow(rate);
       if (rt.players[deck.state.id].error) setError(rt.players[deck.state.id].error);
     }
     if (!activeLock || rate === null || !follower.grid || !leader.grid || !follower.state.track || !leader.state.track) return;
     const targetPlayer = rt.players[follower.state.id], referencePlayer = rt.players[leader.state.id];
+    if (!follower.state.playing || !leader.state.playing) {
+      // Sync changes tempo only until both transports are playing. Never start,
+      // stop, or move a paused deck; clear any temporary phase-correction nudge.
+      if (Math.abs(targetPlayer.segment(when).rate - rate) > .00005) {
+        targetPlayer.schedule({ rate }, when, follower.state.keyLock);
+      }
+      lastAligned.current = null;
+      return;
+    }
     const targetPosition = targetPlayer.position(when);
     const settings = syncSettings(
       { ...follower.grid, duration: follower.state.track.duration, position: targetPosition / follower.state.track.duration, tempo: rate },
