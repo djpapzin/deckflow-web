@@ -1,7 +1,19 @@
 export type StemQuality = 'fast' | 'best';
-/** Measured 45-second demo: Fast 13.7s, Best 24.4s, plus startup margin. */
+/** Local CPU measurements: 45s demo and uncached 257.04s full song.
+ * Interpolate between them; beyond the full song, use its measured rate.
+ * Best Quality scales differently from Fast, so never simply double Fast.
+ */
 export function estimateStemSeconds(duration: number, quality: StemQuality = 'best'): number {
-  return Math.ceil(Math.max(10, duration * (quality === 'fast' ? 13.7 / 45 : 24.4 / 45) + 8));
+  const seconds = Number.isFinite(duration) ? Math.max(0, duration) : 0;
+  const shortDuration = 45, fullDuration = 257.04;
+  const shortTime = quality === 'fast' ? 13.7 : 24.4;
+  const fullTime = quality === 'fast' ? 85.6 : 283;
+  let processing: number;
+  if (seconds <= shortDuration) processing = seconds * shortTime / shortDuration;
+  else if (seconds < fullDuration) {
+    processing = shortTime + (seconds - shortDuration) / (fullDuration - shortDuration) * (fullTime - shortTime);
+  } else processing = seconds * fullTime / fullDuration;
+  return Math.ceil(Math.max(10, processing + 8));
 }
 export function stemCountdown(estimate: number, elapsed: number): string {
   const remaining = Math.max(0, Math.ceil(estimate - elapsed));

@@ -14,3 +14,16 @@ test('stem estimate scales with track duration and counts down without negative 
  assert.match(stemCountdown(75,80),/longer than estimated/);
  assert.doesNotMatch(stemCountdown(75,80),/-|ready/i);
 });
+test('full-song countdown reflects measured CPU time for each quality',()=>{
+ assert.equal(estimateStemSeconds(257.04,'fast'),94);
+ assert.equal(estimateStemSeconds(257.04,'best'),291);
+ // Avoid the old roughly 148-second underestimate for a 4:17 song.
+ assert.match(stemCountdown(estimateStemSeconds(257.04,'best'),150),/2:21 remaining/);
+ assert.ok(estimateStemSeconds(600,'best')>660);
+ for(const quality of ['fast','best']) {
+  const durations=[0,30,45,46,120,257,257.04,258,600];
+  const estimates=durations.map(d=>estimateStemSeconds(d,quality));
+  assert.deepEqual(estimates,[...estimates].sort((a,b)=>a-b));
+  assert.equal(estimateStemSeconds(NaN,quality),10);
+ }
+});
