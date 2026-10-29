@@ -15,7 +15,7 @@ test('stem switches only change gains; retirement disconnects processors',async(
  const stems=new Class(ctx,output,original,player,()=>.2);stems.reset();
  const buffer={numberOfChannels:2,getChannelData:()=>new Float32Array(100)};
  await stems.load([buffer,buffer,buffer,buffer],stems.token());const prior=attachments;
- for(const mode of ['full','acapella','instrumental','vocal-reprise','instrumental-reprise']) {
+ for(const mode of ['full','acapella','beat','instrumental','vocal-reprise','instrumental-reprise']) {
    stems.select(mode);assert.deepEqual(values.slice(-5),stemGains(mode));
  }
  assert.equal(attachments,prior);
@@ -28,4 +28,8 @@ test('reprise modes exclude drums while retaining bass and melody, with optional
  const instrumentalSong=[0,0,.3,.2,.1];
  const mix=mode=>stemGains(mode).reduce((sum,g,i)=>sum+g*instrumentalSong[i],0);
  assert.equal(mix('vocal-reprise'),mix('instrumental-reprise'));
+});
+
+test('Beat isolates drums with vocals, original, bass and melody muted',()=>{
+ assert.deepEqual(stemGains('beat'),[0,0,1,0,0]);
 });

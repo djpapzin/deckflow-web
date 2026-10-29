@@ -1,4 +1,4 @@
-# DeckFlow Web
+# DeckFlow Web v1.0
 
 A browser DJ mixing prototype with two decks, automatic BPM detection, continuous
 Sync, and pitch-preserving Key Lock. The compact blue/red console is inspired by

@@ -51,7 +51,7 @@ def separate_track(folder, quality='best'):
 def allowed(origin):
     if not origin: return False
     parsed = urlparse(origin)
-    return origin == 'https://djpapzin.github.io' or (parsed.scheme == 'http' and parsed.hostname in ('127.0.0.1', 'localhost') and parsed.path == '')
+    return origin in ('https://djpapzin.github.io', 'https://deckflow.djpapzin.com') or (parsed.scheme == 'http' and parsed.hostname in ('127.0.0.1', 'localhost') and parsed.path == '')
 
 def run_job(key, quality='best'):
     folder = DATA / key

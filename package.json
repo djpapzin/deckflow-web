@@ -1,9 +1,9 @@
 {
   "name": "deckflow-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
-  "description": "Browser-only teaching variant of DeckFlow — a DJ mixer built on Web Audio + Elementary Audio (WASM)",
+  "description": "Browser-only teaching variant of DeckFlow \u2014 a DJ mixer built on Web Audio + Elementary Audio (WASM)",
   "scripts": {
     "dev": "vite",
     "test": "node --test test/*.test.mjs && python3 -m unittest discover -s server -p 'test_*.py'",

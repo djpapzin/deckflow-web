@@ -43,7 +43,7 @@ test('moving waveform stays centered from beginning to end and overview stays wi
 function panel(deck) {
   const src=compile('../src/components/DeckPanel.tsx').replace(/^import .*;$/gm,'').replace('export default function','function');
   return new Function('useRef','useState','_jsx','_jsxs','Waveform','JogWheel','TempoControl','validLoop','STEM_MODES',src+'\nreturn DeckPanel;')(
-    ()=>({current:null}),v=>[v,()=>{}],(type,props)=>({type,props}),(type,props)=>({type,props}),'Waveform','JogWheel','TempoControl',()=>false,[{id:'full',label:'FULL MIX'},{id:'acapella',label:'ACAPELLA'},{id:'instrumental',label:'INSTRUMENTAL'},{id:'vocal-reprise',label:'VOCAL REPRISE'},{id:'instrumental-reprise',label:'INSTRUMENTAL REPRISE'}]
+    ()=>({current:null}),v=>[v,()=>{}],(type,props)=>({type,props}),(type,props)=>({type,props}),'Waveform','JogWheel','TempoControl',()=>false,[{id:'full',label:'FULL MIX'},{id:'beat',label:'BEAT'},{id:'acapella',label:'ACAPELLA'},{id:'instrumental',label:'INSTRUMENTAL'},{id:'vocal-reprise',label:'VOCAL REPRISE'},{id:'instrumental-reprise',label:'INSTRUMENTAL REPRISE'}]
   )({deck,label:'Deck A',ensureAudio:async()=>{},canSync:true,onSync:()=>{},onBeatLock:()=>{},onSelect:()=>{},selected:true,onRemember:()=>{}});
 }
 function buttons(node) {
@@ -63,14 +63,14 @@ test('actual Cue and numbered pad handlers dispatch holds, releases and shift-cl
   assert.deepEqual(calls.slice(-2),[[0,false],[4,true]]);
 });
 
-test('five stem modes have distinct labels and dispatch their selected mode',()=>{
+test('six stem modes have distinct labels and dispatch their selected mode',()=>{
  const selected=[];
  const all=buttons(panel({state:{id:'A',track:{duration:45},hotCues:Array(5).fill(null),cueNorm:0},stemMode:'vocal-reprise',stemsReady:true,
    stemStatus:'ready',selectStems:mode=>selected.push(mode),position:0}));
- const modes=all.filter(b=>['FULL MIX','ACAPELLA','INSTRUMENTAL','VOCAL REPRISE','INSTRUMENTAL REPRISE'].includes(b.children));
- assert.equal(modes.length,5);assert.equal(modes.filter(b=>b['aria-pressed']).length,1);
+ const modes=all.filter(b=>['FULL MIX','BEAT','ACAPELLA','INSTRUMENTAL','VOCAL REPRISE','INSTRUMENTAL REPRISE'].includes(b.children));
+ assert.equal(modes.length,6);assert.equal(modes.filter(b=>b['aria-pressed']).length,1);
  for(const mode of modes) mode.onClick();
- assert.deepEqual(new Set(selected),new Set(['full','acapella','instrumental','vocal-reprise','instrumental-reprise']));
+ assert.deepEqual(new Set(selected),new Set(['full','beat','acapella','instrumental','vocal-reprise','instrumental-reprise']));
  assert.equal(all.some(b=>b.children==='VOCALS'),false);
 });
 
