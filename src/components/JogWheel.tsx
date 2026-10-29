@@ -15,10 +15,10 @@ export default function JogWheel({ deck }: { deck: UseDeck }) {
     role="slider" aria-label={`Deck ${deck.state.id} jog wheel`} tabIndex={duration ? 0 : -1}
     aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(deck.position * 100)}
     aria-valuetext={`${seconds.toFixed(1)} seconds`} aria-disabled={!duration}
-    title="Drag around the platter to seek. Arrow keys move a quarter second."
+    title="Hold and drag the platter to scratch forward or backward. Release to resume. Arrow keys seek."
     onPointerDown={e => {
       if (!duration) return;
-      e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId);
+      e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); deck.scratchDown();
       gesture.current = { angle: angle(e), position: deck.position };
     }}
     onPointerMove={e => {
@@ -29,10 +29,11 @@ export default function JogWheel({ deck }: { deck: UseDeck }) {
       if (delta < -Math.PI) delta += Math.PI * 2;
       const secondsPerTurn = deck.grid ? 8 * 60 / deck.grid.bpm : 4;
       const position = Math.max(0, Math.min(1, gesture.current.position + delta / (Math.PI * 2) * secondsPerTurn / duration));
-      gesture.current = { angle: a, position }; deck.seek(position);
+      gesture.current = { angle: a, position }; deck.scratchMove(position);
     }}
-    onPointerUp={() => { gesture.current = null; }} onPointerCancel={() => { gesture.current = null; }}
-    onLostPointerCapture={() => { gesture.current = null; }}
+    onPointerUp={() => { gesture.current = null; deck.scratchUp(); }} onPointerCancel={() => { gesture.current = null; deck.scratchUp(); }}
+    onLostPointerCapture={() => { gesture.current = null; deck.scratchUp(); }}
+    onBlur={() => { gesture.current = null; deck.scratchUp(); }}
     onKeyDown={e => {
       if (!duration || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
       e.preventDefault(); deck.seek(Math.max(0, Math.min(1, deck.position + (e.key === 'ArrowRight' ? .25 : -.25) / duration)));

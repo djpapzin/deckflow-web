@@ -3,6 +3,8 @@ import WebRenderer from '@elemaudio/web-renderer';
 import SignalsmithStretch from './vendor/SignalsmithStretch.mjs';
 import stretchWorkletUrl from './vendor/SignalsmithStretch.mjs?url';
 import { DeckPlayer } from './playback';
+import { ScratchPlayer } from './scratch';
+import scratchWorkletUrl from '../public/scratch-worklet.js?url';
 
 // Serve the original worklet module directly. Serializing the bundled factory
 // with Function.toString loses its closure bindings after production minification.
@@ -12,6 +14,7 @@ export interface AudioRuntime {
   ctx: AudioContext;
   core: WebRenderer;
   players: Record<string, DeckPlayer>;
+  scratch: Record<string, ScratchPlayer>;
   lookAhead: number;
 }
 
@@ -60,13 +63,18 @@ async function bootAudio(): Promise<AudioRuntime> {
 
     node.connect(ctx.destination);
     const players: Record<string, DeckPlayer> = {};
+    const scratch: Record<string, ScratchPlayer> = {};
+    await ctx.audioWorklet.addModule(scratchWorkletUrl);
     let latency = .12;
     for (const [i, id] of ['A', 'B'].entries()) {
       const stretch = await SignalsmithStretch(ctx, {
         numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2],
       });
       const split = ctx.createChannelSplitter(2);
-      stretch.connect(split);
+      const normalGain = ctx.createGain();
+      stretch.connect(normalGain); normalGain.connect(split);
+      scratch[id] = new ScratchPlayer(ctx, normalGain, () => latency + .03);
+      scratch[id].node.connect(split);
       split.connect(node, 0, i * 2);
       split.connect(node, 1, i * 2 + 1);
       latency = Math.max(latency, await stretch.latency());
@@ -75,7 +83,7 @@ async function bootAudio(): Promise<AudioRuntime> {
 
     if (ctx.state === 'suspended') await ctx.resume();
 
-    runtime = { ctx, core, players, lookAhead: latency + .03 };
+    runtime = { ctx, core, players, scratch, lookAhead: latency + .03 };
     return runtime;
   } catch (error) {
     await ctx.close();

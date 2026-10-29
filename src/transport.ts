@@ -3,7 +3,9 @@ import type { DeckState } from './deck';
 export type EqBand = 'eqLow' | 'eqMid' | 'eqHigh';
 export type Action =
   | { type: 'LOAD'; track: DeckState['track'] }
-  | { type: 'PLAY' | 'PAUSE' | 'END' }
+  | { type: 'PLAY' | 'PAUSE' | 'END' | 'CUE_UP' }
+  | { type: 'CUE_DOWN'; position: number }
+  | { type: 'HOT_CUE'; index: number; position: number; clear?: boolean }
   | { type: 'SEEK'; norm: number }
   | { type: 'SYNC'; norm: number; tempo: number }
   | { type: 'FOLLOW'; tempo: number }
@@ -25,9 +27,23 @@ export function reducer(s: DeckState, a: Action): DeckState {
   switch (a.type) {
     case 'LOAD':
       return { ...rebase(s, 0), track: a.track, playing: false, tempo: 1,
-        cueNorm: null, loopIn: null, loopOut: null, loopEnabled: false };
-    case 'PLAY': return s.track ? { ...s, playing: true } : s;
-    case 'PAUSE': return { ...s, playing: false };
+        cueNorm: null, cuePreview: false, hotCues: Array(5).fill(null), loopIn: null, loopOut: null, loopEnabled: false };
+    case 'PLAY': return s.track ? { ...s, playing: true, cuePreview: false } : s;
+    case 'PAUSE': return { ...s, playing: false, cuePreview: false };
+    case 'CUE_DOWN':
+      if (!s.track || s.cuePreview) return s;
+      if (s.playing) return { ...rebase(s, s.cueNorm ?? 0), playing: false, cuePreview: false, loopEnabled: false };
+      return { ...rebase(s, a.position), cueNorm: clamp01(a.position), playing: true, cuePreview: true, loopEnabled: false };
+    case 'HOT_CUE': {
+      if (!s.track || !Number.isInteger(a.index) || a.index < 0 || a.index >= 5) return s;
+      const hotCues = [...s.hotCues];
+      if (a.clear) { hotCues[a.index] = null; return { ...s, hotCues }; }
+      const saved = hotCues[a.index];
+      if (saved === null) { hotCues[a.index] = clamp01(a.position); return { ...s, hotCues }; }
+      return { ...rebase(s, saved), playing: true, cuePreview: false, loopEnabled: false };
+    }
+    case 'CUE_UP': return s.cuePreview
+      ? { ...rebase(s, s.cueNorm ?? 0), playing: false, cuePreview: false } : s;
     case 'SYNC': return s.track ? { ...rebase(s, a.norm), tempo: a.tempo,
       loopEnabled: false } : s;
     case 'FOLLOW': return { ...s, tempo: a.tempo, loopEnabled: false };

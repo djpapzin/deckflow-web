@@ -14,6 +14,7 @@ export function useDeck(id: string, audioReady: boolean) {
   stateRef.current = state;
   const positionRef = useRef(position);
   const loadGen = useRef(0);
+  const scratchGesture = useRef<{ resume: boolean; position: number } | null>(null);
   const ignoreSnapshotsUntil = useRef(0);
   const [grid, setGrid] = useState<BeatGrid | null>(null);
   const [analysisStatus, setAnalysisStatus] = useState<'idle' | 'analyzing' | 'ready' | 'manual' | 'unknown'>('idle');
@@ -45,6 +46,7 @@ export function useDeck(id: string, audioReady: boolean) {
       if (performance.now() < ignoreSnapshotsUntil.current) return;
       const current = stateRef.current;
       if (!current.track) return;
+      if (scratchGesture.current) return;
       const p = rt.players[id].position() / current.track.duration;
       showPosition(p);
       if (p >= 1 && current.playing && !current.loopEnabled) transport({ type: 'END' });
@@ -65,6 +67,7 @@ export function useDeck(id: string, audioReady: boolean) {
   const load = useCallback(async (file: File) => {
     const rt = getRuntime();
     if (!rt) throw new Error('Enable audio before loading a track.');
+    if (scratchGesture.current) { scratchGesture.current = null; rt.scratch[id].stop(); }
     const gen = ++loadGen.current;
     const decoded = await decodeTrack(rt, file);
     if (gen !== loadGen.current) return;
@@ -100,12 +103,41 @@ export function useDeck(id: string, audioReady: boolean) {
   const togglePlay = useCallback(async () => {
     const rt = getRuntime();
     if (rt?.ctx.state === 'suspended') await rt.ctx.resume();
-    dispatch(stateRef.current.playing ? { type: 'PAUSE' } : { type: 'PLAY' });
-  }, []);
+    transport(stateRef.current.playing && !stateRef.current.cuePreview ? { type: 'PAUSE' } : { type: 'PLAY' });
+  }, [transport]);
   const setVolume = useCallback((value: number) => dispatch({ type: 'SET_VOLUME', value }), []);
   const setEq = useCallback((band: EqBand, value: number) => dispatch({ type: 'SET_EQ', band, value }), []);
   const setFilter = useCallback((value: number) => dispatch({ type: 'SET_FILTER', value }), []);
   const setTempo = useCallback((value: number) => dispatch({ type: 'SET_TEMPO', value }), []);
+  const hotCue = (index: number, clear = false) => transport({ type: 'HOT_CUE', index, position: positionRef.current, clear });
+  const scratchDown = () => {
+    const rt = getRuntime(); if (!rt || !stateRef.current.track || scratchGesture.current) return;
+    const position = positionRef.current;
+    scratchGesture.current = { resume: stateRef.current.playing, position };
+    rt.scratch[id].start(position * stateRef.current.track.duration);
+    transport({ type: 'PAUSE' });
+  };
+  const scratchMove = (position: number) => {
+    if (!scratchGesture.current || !stateRef.current.track) return;
+    const norm = clamp01(position); scratchGesture.current.position = norm; showPosition(norm);
+    getRuntime()?.scratch[id].move(norm * stateRef.current.track.duration);
+  };
+  const scratchUp = useCallback(() => {
+    const gesture = scratchGesture.current; if (!gesture) return;
+    scratchGesture.current = null;
+    transport({ type: 'SEEK', norm: gesture.position });
+    if (gesture.resume) transport({ type: 'PLAY' });
+    getRuntime()?.scratch[id].stop();
+  }, [id, transport]);
+  const cueDown = () => { transport({ type: 'CUE_DOWN', position: positionRef.current }); };
+  const cueUp = useCallback(() => transport({ type: 'CUE_UP' }), [transport]);
+  useEffect(() => {
+    const release = () => { cueUp(); scratchUp(); };
+    const hidden = () => { if (document.hidden) release(); };
+    window.addEventListener('blur', release);
+    document.addEventListener('visibilitychange', hidden);
+    return () => { window.removeEventListener('blur', release); document.removeEventListener('visibilitychange', hidden); };
+  }, [cueUp, scratchUp]);
   const setCue = () => dispatch({ type: 'SET_CUE', position: positionRef.current });
   const jumpCue = () => { if (state.cueNorm !== null) seek(state.cueNorm); };
   const loopAction = (type: 'LOOP_IN' | 'LOOP_OUT' | 'TOGGLE_LOOP' | 'CLEAR_LOOP') =>
@@ -144,7 +176,7 @@ export function useDeck(id: string, audioReady: boolean) {
   const syncTo = (norm: number, tempo: number) => transport({ type: 'SYNC', norm, tempo });
 
   return { state, position, level, load, togglePlay, seek, setVolume, setEq, setFilter,
-    setTempo, setCue, jumpCue, loopAction, grid, analysisStatus, manualGrid, tapTempo,
+    setTempo, setCue, jumpCue, cueDown, cueUp, hotCue, scratchDown, scratchMove, scratchUp, loopAction, grid, analysisStatus, manualGrid, tapTempo,
     alignBeat, syncTo, readPosition, follow, toggleKeyLock };
 }
 export type UseDeck = ReturnType<typeof useDeck>;

@@ -13,19 +13,29 @@ or Edge is a good starting point; use headphones or speakers connected to your c
 
 1. Use **ADD MUSIC** (or drop audio files into the music browser), then load a row
    into **A** or **B**. You can also use **LOAD TRACK** or **DEMO** on each deck.
-2. Play Deck A, then press **Sync on Deck B** to lock B to A.
-3. Change A's tempo. B follows; **Key Lock ON** preserves pitch.
+2. Play Deck A, then press **Sync on Deck B** to match once, or **Beat Lock** to keep B following A.
+3. With Beat Lock active, change A's tempo. B follows; **Key Lock ON** preserves pitch.
 4. Use the EQ, filters, channel volume and crossfader to mix.
 5. Sync never starts or pauses a song. Press Play on each deck yourself; tempo
-   stays linked, and beat alignment engages when both decks are playing. Press
-   the lit Sync button to unlock.
+   stays linked with Beat Lock, and beat alignment engages when both decks are playing. Press
+   Beat Lock again to unlock.
 
 Correct an inaccurate beat grid with **Track BPM**, **Tap tempo**, **÷2 / ×2**,
-and **Set beat here**. Waveforms support click-to-seek and wheel zoom. Drag the circular platter to seek
-(or focus it and use arrow keys for quarter-second steps); this is seeking, not
-a scratch engine. Cue and manual
-loops work independently; Sync exits the follower's loop. A track replacement,
-follower end, or unsupported tempo releases Sync.
+and **Set beat here**. The upper blue/red rhythm waveforms scroll through an eight-second window;
+individual deck waveforms show the whole track. Both support seeking and wheel zoom.
+Hold and drag a platter clockwise/counterclockwise to scratch forward/backward; hovering does nothing.
+Release to resume if it was playing. Scratching uses direct stereo PCM playback (speed changes pitch),
+while normal playback uses pitch-preserving time stretch. Focus loss releases a held platter.
+
+Five **HOT CUES** per deck: click an empty slot to mark the current position; click a saved slot
+to jump and play. Shift-click clears a slot. Markers appear on the waveforms. They last for the loaded
+track in this session. The main **CUE** button stops at the saved cue while playing; while paused,
+hold it to set/preview the current position, then release to return. Play during preview keeps playback going.
+Click a deck to select it; **Space** toggles that deck's playback (typing fields and main Cue keep their own keys).
+Cue and manual loops work independently; Sync exits the follower's loop. A track replacement,
+follower end, or unsupported tempo releases Beat Lock. Beat Lock realigns after a scratch when both decks play.
+Scratching adds a second in-memory stereo PCM copy per deck. Mouse scratch responsiveness depends on the
+browser and pointer event rate; this is not a claim of matching VirtualDJ's native audio engine.
 
 Audio is decoded and processed in your browser's memory. Nothing uploads your music.
 Reloading clears the session. Browser codec support varies; WAV is a useful fallback.

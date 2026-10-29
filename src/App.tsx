@@ -4,6 +4,7 @@ import { initAudio, getRuntime } from './audio';
 import { buildDeckSignal } from './deck';
 import { useDeck } from './useDeck';
 import DeckPanel from './components/DeckPanel';
+import Waveform from './components/Waveform';
 import DeckControls from './components/DeckControls';
 import Mixer from './components/Mixer';
 import TrackBrowser, { fileId, type SessionTrack } from './components/TrackBrowser';
@@ -37,20 +38,46 @@ export default function App() {
       decks: [libraryInfo[id]?.decks, deck.state.id].filter(Boolean).join(' / ') };
   }
 
+  const [selectedDeck, setSelectedDeck] = useState('A');
+  const keyboardDeck = useRef(deckA);
+  keyboardDeck.current = selectedDeck === 'A' ? deckA : deckB;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.code !== 'Space' || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, .cue-btn, summary, [contenteditable="true"]')) return;
+      event.preventDefault();
+      void keyboardDeck.current.togglePlay().catch(err => setError(String(err)));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const [crossfader, setCrossfader] = useState(0); // -1 full A .. +1 full B
   const [masterVolume, setMasterVolume] = useState(0.8);
-  const [syncMessage, setSyncMessage] = useState('Play a deck, then press Sync on the other to lock it to the leader.');
+  const [syncMessage, setSyncMessage] = useState('Sync matches once. Beat Lock keeps the other deck following. Play each deck yourself.');
   const [lock, setLock] = useState<{ follower: string; aTrack: string; bTrack: string; token: number } | null>(null);
   const lastAligned = useRef<number | null>(null);
   const latest = useRef({ deckA, deckB, lock });
   latest.current = { deckA, deckB, lock };
-  const sync = (follower: string) => {
+  const beatLock = (follower: string) => {
     if (lock?.follower === follower) {
       setLock(null); setSyncMessage('Sync unlocked. Both decks now have independent transport and tempo.'); return;
     }
     if (!deckA.grid || !deckB.grid || !deckA.state.track || !deckB.state.track) return;
     setLock({ follower, aTrack: deckA.state.track.pathL, bTrack: deckB.state.track.pathL, token: performance.now() });
-    setSyncMessage(`Deck ${follower} is locked to Deck ${follower === 'A' ? 'B' : 'A'}. Tempo follows the leader. Play and pause each deck yourself; Sync never starts a track. Press the lit Sync button to unlock.`);
+    setSyncMessage(`Deck ${follower} is locked to Deck ${follower === 'A' ? 'B' : 'A'}. Tempo follows the leader. Play and pause each deck yourself; Sync never starts a track. Press Beat Lock again to unlock.`);
+  };
+
+  const sync = (id: string) => {
+    const target = id === 'A' ? deckA : deckB;
+    const reference = id === 'A' ? deckB : deckA;
+    if (!target.grid || !reference.grid || !target.state.track || !reference.state.track) return;
+    const settings = syncSettings(
+      { ...target.grid, duration: target.state.track.duration, position: target.readPosition(), tempo: target.state.tempo },
+      { ...reference.grid, duration: reference.state.track.duration, position: reference.readPosition(), tempo: reference.state.tempo });
+    if (!settings) { setSyncMessage('Cannot match within ±50%. Check track BPM or use ×2 / ÷2.'); return; }
+    target.syncTo(target.state.playing && reference.state.playing ? settings.norm : target.readPosition(), settings.tempo);
+    setSyncMessage(`Deck ${id} matched to Deck ${reference.state.id}. Playback stays independent. Use Beat Lock for continuous following.`);
   };
 
   // Both sources use one AudioContext clock and the same scheduled change time.
@@ -160,20 +187,30 @@ export default function App() {
       <p className="intro">Load your tracks, or try the demos. Music stays on your device.</p>
       <p className="sync-status" role="status">{syncMessage}</p>
 
+      <section className="rhythm-display" aria-label="Moving deck waveforms">
+        {[deckA, deckB].map(deck => <div key={deck.state.id} className={`rhythm-lane rhythm-${deck.state.id}`}>
+          <button className="btn ghost" aria-pressed={selectedDeck === deck.state.id} onClick={() => setSelectedDeck(deck.state.id)}>DECK {deck.state.id}</button>
+          <Waveform peaks={deck.state.track?.peaks ?? null} position={deck.position} onSeek={deck.seek}
+            cueNorm={deck.state.cueNorm} hotCues={deck.state.hotCues} loopIn={deck.state.loopIn} loopOut={deck.state.loopOut}
+            loopEnabled={deck.state.loopEnabled} label={`Deck ${deck.state.id} scrolling rhythm waveform`}
+            grid={deck.grid} duration={deck.state.track?.duration ?? 0} detailSeconds={8}
+            color={deck.state.id === 'A' ? '#36a9ff' : '#ff5265'} />
+        </div>)}
+      </section>
       <div className="console-viewport"><div className="performance-console">
         <DeckPanel deck={deckA} label="Deck A" ensureAudio={ensureAudio} onRemember={(file,demo) => remember(file,demo,'A')}
-          canSync={!!deckA.grid && !!deckB.grid} onSync={() => sync('A')} syncLocked={lock?.follower === 'A'} leader={lock?.follower === 'A' ? 'B' : undefined} />
+          canSync={!!deckA.grid && !!deckB.grid} selected={selectedDeck === 'A'} onSelect={() => setSelectedDeck('A')} onSync={() => sync('A')} onBeatLock={() => beatLock('A')} syncLocked={lock?.follower === 'A'} leader={lock?.follower === 'A' ? 'B' : undefined} />
         <section className="central-mixer" aria-label="Central mixer">
           <div className="mixer-title">MIXER <span>STEREO</span></div>
           <div className="channel-strips"><DeckControls deck={deckA} /><DeckControls deck={deckB} /></div>
           <Mixer crossfader={crossfader} setCrossfader={setCrossfader} masterVolume={masterVolume} setMasterVolume={setMasterVolume} />
         </section>
         <DeckPanel deck={deckB} label="Deck B" ensureAudio={ensureAudio} onRemember={(file,demo) => remember(file,demo,'B')}
-          canSync={!!deckA.grid && !!deckB.grid} onSync={() => sync('B')} syncLocked={lock?.follower === 'B'} leader={lock?.follower === 'B' ? 'A' : undefined} />
+          canSync={!!deckA.grid && !!deckB.grid} selected={selectedDeck === 'B'} onSelect={() => setSelectedDeck('B')} onSync={() => sync('B')} onBeatLock={() => beatLock('B')} syncLocked={lock?.follower === 'B'} leader={lock?.follower === 'B' ? 'A' : undefined} />
       </div></div>
       <TrackBrowser tracks={library} addFiles={files => files.forEach(file => remember(file))} info={libraryInfo}
         load={async (entry, id) => { await ensureAudio(); await (id === 'A' ? deckA : deckB).load(entry.file); remember(entry.file,entry.demo,id); }} />
-      <footer className="console-help"><span>LOCAL AUDIO · KEY LOCK · CONTINUOUS SYNC</span><span>Drag a platter to seek · Scroll a waveform to zoom</span></footer>
+      <footer className="console-help"><span>LOCAL AUDIO · KEY LOCK · CONTINUOUS SYNC</span><span>Hold + drag a platter to scratch · Space: selected deck play/pause</span></footer>
 
       {error && <p className="error">{error}</p>}
     </main>

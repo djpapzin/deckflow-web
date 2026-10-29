@@ -15,7 +15,10 @@ interface Props {
   label: string;
   ensureAudio: () => Promise<void>; // boots the AudioContext on first user gesture
   canSync: boolean;
+  onSelect: () => void;
+  selected: boolean;
   onSync: () => void;
+  onBeatLock: () => void;
   syncLocked: boolean;
   leader?: string;
   onRemember: (file: File, demo: boolean) => void;
@@ -27,7 +30,7 @@ function fmt(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export default function DeckPanel({ deck, label, ensureAudio, canSync, onSync, syncLocked, leader, onRemember }: Props) {
+export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect, selected, onSync, onBeatLock, syncLocked, leader, onRemember }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -55,9 +58,9 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSync, s
   const { track } = deck.state;
 
   return (
-    <section className={`deck deck-${deck.state.id}`} aria-label={label}>
+    <section className={`deck deck-${deck.state.id} ${selected ? 'selected-deck' : ''}`} aria-label={label} onPointerDownCapture={onSelect} onFocusCapture={onSelect}>
       <header className="deck-head">
-        <span className="deck-label"><b>{deck.state.id}</b> {label.toUpperCase()}</span>
+        <span className="deck-label"><b>{deck.state.id}</b> {label.toUpperCase()} {selected ? '· SPACE ▶/Ⅱ' : ''}</span>
         <button className="btn ghost" onClick={() => void loadFile(makeDemoTrack(deck.state.id), true)} disabled={loading}>
           DEMO
         </button>
@@ -87,7 +90,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSync, s
       </div>
       <div className="waveform-wrap">
         <Waveform peaks={track?.peaks ?? null} position={deck.position} onSeek={deck.seek}
-          cueNorm={deck.state.cueNorm} loopIn={deck.state.loopIn} loopOut={deck.state.loopOut}
+          cueNorm={deck.state.cueNorm} hotCues={deck.state.hotCues} loopIn={deck.state.loopIn} loopOut={deck.state.loopOut}
           loopEnabled={deck.state.loopEnabled} label={`${label} waveform`}
           grid={deck.grid} duration={track?.duration ?? 0} color={deck.state.id === 'A' ? '#36a9ff' : '#ff5265'} />
       </div>
@@ -129,15 +132,30 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSync, s
       </div></details>
 
 </div><JogWheel deck={deck} /></div>
+      <div className="hot-cues" role="group" aria-label={`${label} hot cues`}>
+        <span>HOT CUES</span>{deck.state.hotCues.map((cue, index) => <button key={index}
+          className={`btn ghost ${cue !== null ? 'active' : ''}`} disabled={!track}
+          aria-label={`${label} hot cue ${index + 1}${cue === null ? ' empty' : ` at ${fmt(cue * (track?.duration ?? 0))}`}`}
+          title="Empty: set here. Saved: jump and play. Shift-click: clear."
+          onClick={e => deck.hotCue(index, e.shiftKey)}>{index + 1}<small>{cue === null ? 'SET' : fmt(cue * (track?.duration ?? 0))}</small></button>)}
+      </div>
       <div className="transport">
-        <button className="btn cue-btn" onClick={deck.jumpCue} disabled={deck.state.cueNorm === null} title="Return to the saved cue">CUE</button>
+        <button className={`btn cue-btn ${deck.state.cuePreview ? 'active' : ''}`} disabled={!track}
+          title="Playing: stop at cue. Paused: hold to preview; release to return. Press Play while holding to continue."
+          onPointerDown={e => { if (e.button !== 0) return; e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); deck.cueDown(); }}
+          onPointerUp={deck.cueUp} onPointerCancel={deck.cueUp} onLostPointerCapture={deck.cueUp} onBlur={deck.cueUp}
+          onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!e.repeat) deck.cueDown(); } }}
+          onKeyUp={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); deck.cueUp(); } }}
+          onClick={e => { if (e.detail === 0) { deck.cueDown(); deck.cueUp(); } }}>CUE</button>
         <button className={`btn play-btn ${deck.state.playing ? 'stop' : 'start'}`}
           onClick={() => void deck.togglePlay().catch(err => setError(String(err)))} disabled={!track}
           title="Play or pause this deck independently of Sync">
           {deck.state.playing ? 'Ⅱ PAUSE' : '▶ PLAY'}
         </button>
         <button className={`btn sync-btn ${syncLocked ? 'locked' : ''}`} disabled={!canSync || loading} onClick={onSync}
-          aria-pressed={syncLocked} title="Lock tempo and beats without starting playback. Press again to unlock.">{syncLocked ? 'SYNC ●' : 'SYNC'}</button>
+          title="Match tempo; align beats when both decks play. Never starts playback.">SYNC</button>
+        <button className={`btn ghost ${syncLocked ? 'active' : ''}`} disabled={!canSync || loading} onClick={onBeatLock}
+          aria-pressed={syncLocked} title="Keep tempo and beats following the other deck; press again to unlock.">BEAT LOCK</button>
       </div>
       {error && <p className="error">{error}</p>}
     </section>

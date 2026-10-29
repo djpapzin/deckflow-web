@@ -82,6 +82,7 @@ export async function publishTrack(rt: AudioRuntime, deckId: string,
   const pathR = `${deckId}:R`;
 
   // Transfer PCM to the time-stretch worklet. Paths remain stable track identities.
+  rt.scratch[deckId.split(':')[0]].load(left, right);
   await rt.players[deckId.split(':')[0]].load(left, right, metadata.duration);
 
   return {

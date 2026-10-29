@@ -16,6 +16,8 @@ export interface DeckState {
   eqHigh: number; // dB, -12..12
   filterCutoff: number; // -1 (LPF down to 100Hz) .. 0 (bypass) .. 1 (HPF up to 10kHz)
   cueNorm: number | null;
+  cuePreview: boolean;
+  hotCues: (number | null)[];
   loopIn: number | null;
   loopOut: number | null;
   loopEnabled: boolean;
@@ -36,6 +38,8 @@ export function initialDeckState(id: string): DeckState {
     eqHigh: 0,
     filterCutoff: 0,
     cueNorm: null,
+    cuePreview: false,
+    hotCues: Array(5).fill(null),
     loopIn: null,
     loopOut: null,
     loopEnabled: false,

@@ -1531,3 +1531,17 @@ h1 {
   .track-display .analysis-status { font-size: 5px; letter-spacing: 0; }
   .console-help:after { content: 'Expand the browser for larger controls · landscape recommended on phones'; }
 }
+
+/* Performance controls */
+.hot-cues { display:flex; align-items:center; gap:5px; padding:8px; }
+.hot-cues > span { font-size:9px; color:#a9b1c2; }
+.hot-cues button { flex:1; min-width:0; }
+.hot-cues small { display:block; font-size:8px; margin-top:3px; }
+.selected-deck { outline:1px solid #d6e6ff66; outline-offset:-2px; }
+.rhythm-display { background:#0b1018; border:1px solid #444; padding:5px; margin-bottom:10px; }
+.rhythm-lane { display:flex; align-items:center; gap:8px; min-width:0; }
+.rhythm-lane > button { width:72px; flex-shrink:0; }
+.rhythm-lane .waveform { width:calc(100% - 80px); height:64px; }
+.jog-wheel { touch-action:none; cursor:grab; }
+.jog-wheel:active { cursor:grabbing; }
+.transport { flex-wrap:wrap; }

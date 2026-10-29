@@ -26,20 +26,22 @@ interface Props {
   grid: BeatGrid | null;
   duration: number;
   color: string;
+  hotCues?: (number | null)[];
+  detailSeconds?: number;
 }
 
 const CACHE_HEIGHT = 256; // offscreen bitmap height; scaled to the canvas at blit time
 const MIN_WINDOW = 0.02; // closest zoom: 2% of the track visible
 
-export default function Waveform({ peaks, position, onSeek, cueNorm, loopIn, loopOut, loopEnabled, label, grid, duration, color }: Props) {
+export default function Waveform({ peaks, position, onSeek, cueNorm, loopIn, loopOut, loopEnabled, label, grid, duration, color, hotCues = [], detailSeconds }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cacheRef = useRef<HTMLCanvasElement | null>(null);
   const [windowFrac, setWindowFrac] = useState(1); // fraction of track visible (1 = all)
 
   // Reset to the full-track view whenever a new track loads.
   useEffect(() => {
-    setWindowFrac(1);
-  }, [peaks]);
+    setWindowFrac(detailSeconds && duration ? Math.min(1, detailSeconds / duration) : 1);
+  }, [peaks, detailSeconds, duration]);
 
   // Render the peaks to an offscreen bitmap, normalized so the loudest peak fills the
   // height. Rebuilt only when the peaks change — not per frame.
@@ -164,6 +166,7 @@ export default function Waveform({ peaks, position, onSeek, cueNorm, loopIn, loo
     marker(loopIn, 'IN', '#5ce7b4', 0);
     marker(loopOut, 'OUT', '#5ce7b4', 0);
     marker(cueNorm, 'CUE', '#ffd47a', 1);
+    hotCues.forEach((cue, i) => marker(cue, String(i + 1), color, 0));
 
     // Playhead at its true position within the visible window.
     const playX = ((position * total - start) / win) * cssW;
@@ -173,7 +176,7 @@ export default function Waveform({ peaks, position, onSeek, cueNorm, loopIn, loo
     ctx.moveTo(playX, 0);
     ctx.lineTo(playX, cssH);
     ctx.stroke();
-  }, [position, windowFor, peaks, cueNorm, loopIn, loopOut, loopEnabled, grid, duration]);
+  }, [position, windowFor, peaks, cueNorm, loopIn, loopOut, loopEnabled, grid, duration, hotCues, color]);
 
   useEffect(() => {
     draw();

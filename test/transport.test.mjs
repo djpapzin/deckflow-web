@@ -7,7 +7,7 @@ const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.Modu
 const { reducer, validLoop } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 const initial = () => ({ id:'A', track:{duration:10}, playing:true, baseNorm:0, seekGen:0,
   tempo:1, volume:1, eqLow:0, eqMid:0, eqHigh:0, filterCutoff:0,
-  cueNorm:null, loopIn:null, loopOut:null, loopEnabled:false });
+  cueNorm:null, cuePreview:false, hotCues:Array(5).fill(null), loopIn:null, loopOut:null, loopEnabled:false });
 test('tempo is bounded without resetting transport', () => {
   let s = initial(); s.baseNorm = .3;
   assert.equal(reducer(s, {type:'SET_TEMPO',value:4}).tempo, 1.5);
@@ -71,4 +71,27 @@ test('continuous Sync follows tempo but never starts or pauses a deck',()=>{
   assert.equal(next.seekGen,s.seekGen);assert.equal(next.baseNorm,s.baseNorm);
   assert.equal(next.keyLock,true);assert.equal(reducer(next,{type:'KEY_LOCK'}).keyLock,false);
  }
+});
+
+test('main cue stops at saved cue; hold while paused previews and release returns', () => {
+  const stopped = reducer({...initial(),cueNorm:.2},{type:'CUE_DOWN',position:.6});
+  assert.equal(stopped.playing,false); assert.equal(stopped.baseNorm,.2);
+  assert.equal(reducer(stopped,{type:'CUE_UP'}),stopped);
+  const preview = reducer(stopped,{type:'CUE_DOWN',position:.3});
+  assert.equal(preview.playing,true); assert.equal(preview.cueNorm,.3);
+  const released = reducer(preview,{type:'CUE_UP'});
+  assert.equal(released.playing,false); assert.equal(released.baseNorm,.3);
+  const latched = reducer(preview,{type:'PLAY'});
+  assert.equal(reducer(latched,{type:'CUE_UP'}).playing,true);
+});
+test('five hot cues set, jump/play, clear independently and reset on track load', () => {
+  let s = {...initial(),playing:false};
+  for (let i=0;i<5;i++) s=reducer(s,{type:'HOT_CUE',index:i,position:i/10});
+  assert.deepEqual(s.hotCues,[0,.1,.2,.3,.4]); assert.equal(s.playing,false);
+  s=reducer(s,{type:'HOT_CUE',index:3,position:.9});
+  assert.equal(s.baseNorm,.3); assert.equal(s.playing,true);
+  s=reducer(s,{type:'HOT_CUE',index:3,position:0,clear:true});
+  assert.equal(s.hotCues[3],null); assert.equal(s.hotCues[4],.4);
+  assert.equal(reducer(s,{type:'HOT_CUE',index:5,position:0}),s);
+  assert.deepEqual(reducer(s,{type:'LOAD',track:{duration:8}}).hotCues,Array(5).fill(null));
 });
