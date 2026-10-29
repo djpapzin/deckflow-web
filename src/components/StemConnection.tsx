@@ -5,12 +5,12 @@ export default function StemConnection({onConnected}:{onConnected:()=>void}) {
   const [message,setMessage]=useState('Connect to prepare stems on this Mac.');
   if (!STEM_BASE) return null;
   const connect=async()=>{
-    setState('connecting');setMessage('Allow access to this Mac if your browser asks…');
+    setState('connecting');setMessage('Opening the Mac connection window…');
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),30000);
     try {
       await connectMacStems(controller.signal);setState('ready');setMessage('Mac stem service connected.');onConnected();
     } catch {
-      setState('error');setMessage('Could not connect. Start the Mac service and allow local/loopback access in this site’s browser permissions.');
+      setState('error');setMessage('Could not connect. Start the Mac service, allow the connection window to open, and keep it open while using stems.');
     } finally {clearTimeout(timer);}
   };
   return <div className="intro" aria-label="Mac stem service connection">

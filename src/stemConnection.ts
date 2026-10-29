@@ -1,10 +1,16 @@
+import {bridgeReady, connectStemBridge, bridgeFetch} from './stemBridge';
 /** Requests go only to the loopback companion, never a remote audio service. */
 export const STEM_BASE = location.port === '8787' ? '' : 'http://127.0.0.1:8787';
 let connected = !STEM_BASE;
 export function localStemFetch(path: string, init: RequestInit = {}) {
+  if (STEM_BASE && bridgeReady()) return bridgeFetch(path,init);
   return fetch(`${STEM_BASE}${path}`, { ...init, targetAddressSpace:'loopback' } as RequestInit);
 }
 export async function connectMacStems(signal?: AbortSignal) {
+  // A dev-only localhost window avoids cross-origin network fetch restrictions.
+  if (location.origin === 'https://dev.deckflow.djpapzin.com') {
+    await connectStemBridge(signal); connected=true; return;
+  }
   // Call directly from a click: the browser may need a user gesture for permission.
   const response = await localStemFetch('/api/health', { signal });
   if (!response.ok || !(await response.json()).ready) throw new Error('Start the DeckFlow stem service on your Mac, then connect again.');

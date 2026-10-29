@@ -45,6 +45,14 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(code,202);self.assertEqual(json.loads(body)['id'],key)
         self.assertEqual(self.call('POST','/api/stems?quality=wrong',data)[0],400)
 
+    def test_connection_window_is_local_and_not_frameable(self):
+        code,body,headers=self.call('GET','/connect')
+        self.assertEqual(code,200)
+        self.assertEqual(headers['X-Frame-Options'],'DENY')
+        self.assertIn(b"event.source!==window.opener",body)
+        self.assertIn(b"https://dev.deckflow.djpapzin.com",body)
+        self.assertEqual(self.call('GET','/connect',host='evil.example')[0],403)
+
     def test_public_app_cors_and_health(self):
         code,body,headers=self.call('GET','/api/health',origin='https://djpapzin.github.io')
         self.assertEqual(code,200);self.assertIn('ready',json.loads(body))

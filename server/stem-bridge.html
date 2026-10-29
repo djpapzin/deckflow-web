@@ -1,0 +1,31 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>DeckFlow Mac connection</title>
+<style>body{background:#15191e;color:#eee;font:16px system-ui;padding:30px;max-width:540px}h1{color:#36a9ff}</style>
+<h1>DeckFlow Mac connection</h1><p id="status" role="status">Connecting…</p>
+<p>Keep this window open while preparing stems in DeckFlow. Audio processing stays on this Mac.</p>
+<script>
+'use strict';
+const params=new URLSearchParams(location.search),origin=params.get('origin'),channel=params.get('channel');
+const trusted=['https://dev.deckflow.djpapzin.com'];
+const status=document.getElementById('status'),jobs=new Map();
+function send(message,transfer=[]){window.opener.postMessage({...message,channel},origin,transfer);}
+if(!trusted.includes(origin)||!channel||!window.opener){status.textContent='Open this connection window using Connect Mac Stems on the dev site.';}
+else {
+ window.addEventListener('message',async event=>{
+  const d=event.data;
+  if(event.origin!==origin||event.source!==window.opener||!d||d.channel!==channel)return;
+  if(d.type==='cancel'){jobs.get(d.id)?.abort();return;}
+  if(d.type!=='request'||typeof d.id!=='string')return;
+  const valid=d.path==='/api/health'||/^\/api\/stems\?quality=(fast|best)$/.test(d.path)||/^\/api\/stems\/[a-f0-9]{64}(\/(vocals|drums|bass|other|instrumental)\.wav)?$/.test(d.path);
+  if(!valid||!['GET','POST'].includes(d.method)|| (d.method==='POST'&&!/^\/api\/stems\?/.test(d.path)))return;
+  const controller=new AbortController();jobs.set(d.id,controller);
+  try{
+   const response=await fetch(d.path,{method:d.method,body:d.method==='POST'?d.body:undefined,headers:d.method==='POST'?{'Content-Type':'application/octet-stream'}:undefined,signal:controller.signal});
+   const body=await response.arrayBuffer();send({type:'response',id:d.id,status:response.status,contentType:response.headers.get('Content-Type'),body},[body]);
+  }catch(error){send({type:'response',id:d.id,error:error.name==='AbortError'?'Cancelled':'Mac service request failed'});}
+  finally{jobs.delete(d.id);}
+ });
+ fetch('/api/health').then(r=>r.json()).then(data=>{
+  if(!data.ready)throw Error('not ready');status.textContent='Connected to the DeckFlow dev site. You can return to its tab.';send({type:'ready'});
+ }).catch(()=>{status.textContent='The Mac stem service is not ready. Start the service and reconnect.';send({type:'connection-error'});});
+}
+</script></html>

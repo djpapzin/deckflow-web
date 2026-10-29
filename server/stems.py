@@ -117,7 +117,17 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.headers.get('Host') not in ('127.0.0.1:8787','localhost:8787'): return self.reply(403, {'error':'Host not allowed'})
         path = urlparse(self.path).path
+        if path == '/connect':
+            data = (ROOT/'server/stem-bridge.html').read_bytes()
+            self.send_response(200)
+            self.send_header('Content-Type','text/html; charset=utf-8')
+            self.send_header('Content-Length',str(len(data)))
+            self.send_header('Cache-Control','no-store')
+            self.send_header('X-Frame-Options','DENY')
+            self.send_header('Referrer-Policy','no-referrer')
+            self.end_headers(); self.wfile.write(data); return
         if path.startswith('/api/'):
+
             # API responses and audio are available only to the known app origins.
             if not allowed(self.request_origin()): return self.reply(403, {'error':'Origin not allowed'})
             if path == '/api/health': return self.reply(200, {'ready':CLI.exists(), 'model':MODEL})
