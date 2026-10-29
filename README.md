@@ -1,21 +1,27 @@
 # DeckFlow Web
 
 A browser DJ mixing prototype with two decks, automatic BPM detection, continuous
-Sync, and pitch-preserving Key Lock. No account or music upload required.
+Sync, and pitch-preserving Key Lock. The compact blue/red console is inspired by
+the Mix Lab for VDJ 8 reference: outer pitch rails, inner circular time/BPM
+displays, central mixer, and a searchable music browser below. No account or music
+upload required.
 
 ## Use it
 
 Open the GitHub Pages link shown in this repository's About section. Desktop Chrome
 or Edge is a good starting point; use headphones or speakers connected to your computer.
 
-1. Load a track on each deck, or try **Load demo**.
+1. Use **ADD MUSIC** (or drop audio files into the music browser), then load a row
+   into **A** or **B**. You can also use **LOAD TRACK** or **DEMO** on each deck.
 2. Play Deck A, then press **Sync on Deck B** to lock B to A.
 3. Change A's tempo. B follows; **Key Lock ON** preserves pitch.
 4. Use the EQ, filters, channel volume and crossfader to mix.
 5. Press the lit Sync button to unlock. While locked, use the leader's Play/Pause.
 
 Correct an inaccurate beat grid with **Track BPM**, **Tap tempo**, **÷2 / ×2**,
-and **Set beat here**. Waveforms support click-to-seek and wheel zoom. Cue and manual
+and **Set beat here**. Waveforms support click-to-seek and wheel zoom. Drag the circular platter to seek
+(or focus it and use arrow keys for quarter-second steps); this is seeking, not
+a scratch engine. Cue and manual
 loops work independently; Sync exits the follower's loop. A track replacement,
 follower end, or unsupported tempo releases Sync.
 

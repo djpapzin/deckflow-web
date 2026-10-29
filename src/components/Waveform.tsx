@@ -25,12 +25,13 @@ interface Props {
   label: string;
   grid: BeatGrid | null;
   duration: number;
+  color: string;
 }
 
 const CACHE_HEIGHT = 256; // offscreen bitmap height; scaled to the canvas at blit time
 const MIN_WINDOW = 0.02; // closest zoom: 2% of the track visible
 
-export default function Waveform({ peaks, position, onSeek, cueNorm, loopIn, loopOut, loopEnabled, label, grid, duration }: Props) {
+export default function Waveform({ peaks, position, onSeek, cueNorm, loopIn, loopOut, loopEnabled, label, grid, duration, color }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cacheRef = useRef<HTMLCanvasElement | null>(null);
   const [windowFrac, setWindowFrac] = useState(1); // fraction of track visible (1 = all)
@@ -67,14 +68,14 @@ export default function Waveform({ peaks, position, onSeek, cueNorm, loopIn, loo
     const mid = CACHE_HEIGHT / 2;
 
     c.clearRect(0, 0, w, CACHE_HEIGHT);
-    c.strokeStyle = '#4cc2ff';
+    c.strokeStyle = color;
     c.beginPath();
     for (let x = 0; x < w; x++) {
       c.moveTo(x + 0.5, mid - peaks.min[x] * norm * mid);
       c.lineTo(x + 0.5, mid - peaks.max[x] * norm * mid);
     }
     c.stroke();
-  }, [peaks]);
+  }, [peaks, color]);
 
   // The visible bucket window, centered on the playhead and clamped to the track.
   const windowFor = useCallback(

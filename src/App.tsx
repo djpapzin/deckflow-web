@@ -6,6 +6,7 @@ import { useDeck } from './useDeck';
 import DeckPanel from './components/DeckPanel';
 import DeckControls from './components/DeckControls';
 import Mixer from './components/Mixer';
+import TrackBrowser, { fileId, type SessionTrack } from './components/TrackBrowser';
 import { syncSettings, driftCorrection } from './beatmatch';
 
 // P3 — two decks + a crossfader + master volume: the actual mixer.
@@ -21,6 +22,20 @@ export default function App() {
 
   const deckA = useDeck('A', audioReady);
   const deckB = useDeck('B', audioReady);
+
+  const [library, setLibrary] = useState<SessionTrack[]>([]);
+  const [loadedIds, setLoadedIds] = useState<Record<string,string>>({});
+  const remember = (file: File, demo = false, deck?: string) => {
+    const id = fileId(file);
+    setLibrary(current => current.some(t => t.id === id) ? current : [...current, { id, file, demo }]);
+    if (deck) setLoadedIds(current => ({ ...current, [deck]: id }));
+  };
+  const libraryInfo: Record<string, {bpm?:number; duration?:number; decks:string}> = {};
+  for (const deck of [deckA, deckB]) {
+    const id = loadedIds[deck.state.id];
+    if (id && deck.state.track) libraryInfo[id] = { bpm: deck.grid?.bpm, duration: deck.state.track.duration,
+      decks: [libraryInfo[id]?.decks, deck.state.id].filter(Boolean).join(' / ') };
+  }
 
   const [crossfader, setCrossfader] = useState(0); // -1 full A .. +1 full B
   const [masterVolume, setMasterVolume] = useState(0.8);
@@ -129,31 +144,27 @@ export default function App() {
   return (
     <main className="app">
       <header className="topbar">
-        <h1>DeckFlow Web</h1>
-        <span className="subtitle">Two decks. Your mix.</span>
-        <span className="build-badge">CODEX LAB · BEATMATCH</span>
+        <h1>DECK<span>FLOW</span></h1>
+        <span className="subtitle">DIGITAL MIXING CONSOLE</span>
+        <span className="build-badge">CLASSIC MIX · 2 DECKS</span>
       </header>
-      <p className="intro">Load a track or try the demos. Click the waveform to seek; scroll to zoom.
-        Key Lock preserves pitch while tempo changes. Your audio stays on this device.</p>
+      <p className="intro">Load your tracks, or try the demos. Music stays on your device.</p>
       <p className="sync-status" role="status">{syncMessage}</p>
 
-      <div className="decks">
-        <DeckPanel deck={deckA} label="Deck A" ensureAudio={ensureAudio}
+      <div className="console-viewport"><div className="performance-console">
+        <DeckPanel deck={deckA} label="Deck A" ensureAudio={ensureAudio} onRemember={(file,demo) => remember(file,demo,'A')}
           canSync={!!deckA.grid && !!deckB.grid} onSync={() => sync('A')} syncLocked={lock?.follower === 'A'} leader={lock?.follower === 'A' ? 'B' : undefined} />
-        <DeckPanel deck={deckB} label="Deck B" ensureAudio={ensureAudio}
+        <section className="central-mixer" aria-label="Central mixer">
+          <div className="mixer-title">MIXER <span>STEREO</span></div>
+          <div className="channel-strips"><DeckControls deck={deckA} /><DeckControls deck={deckB} /></div>
+          <Mixer crossfader={crossfader} setCrossfader={setCrossfader} masterVolume={masterVolume} setMasterVolume={setMasterVolume} />
+        </section>
+        <DeckPanel deck={deckB} label="Deck B" ensureAudio={ensureAudio} onRemember={(file,demo) => remember(file,demo,'B')}
           canSync={!!deckA.grid && !!deckB.grid} onSync={() => sync('B')} syncLocked={lock?.follower === 'B'} leader={lock?.follower === 'B' ? 'A' : undefined} />
-      </div>
-
-      <div className="console">
-        <DeckControls deck={deckA} tempoLocked={lock?.follower === 'A'} />
-        <Mixer
-          crossfader={crossfader}
-          setCrossfader={setCrossfader}
-          masterVolume={masterVolume}
-          setMasterVolume={setMasterVolume}
-        />
-        <DeckControls deck={deckB} tempoLocked={lock?.follower === 'B'} />
-      </div>
+      </div></div>
+      <TrackBrowser tracks={library} addFiles={files => files.forEach(file => remember(file))} info={libraryInfo}
+        load={async (entry, id) => { await ensureAudio(); await (id === 'A' ? deckA : deckB).load(entry.file); remember(entry.file,entry.demo,id); }} />
+      <footer className="console-help"><span>LOCAL AUDIO · KEY LOCK · CONTINUOUS SYNC</span><span>Drag a platter to seek · Scroll a waveform to zoom</span></footer>
 
       {error && <p className="error">{error}</p>}
     </main>

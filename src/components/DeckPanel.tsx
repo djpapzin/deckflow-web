@@ -6,6 +6,8 @@ import { useRef, useState } from 'react';
 import type { UseDeck } from '../useDeck';
 import Waveform from './Waveform';
 import { makeDemoTrack } from '../demo';
+import JogWheel from './JogWheel';
+import TempoControl from './TempoControl';
 import { validLoop } from '../transport';
 
 interface Props {
@@ -16,6 +18,7 @@ interface Props {
   onSync: () => void;
   syncLocked: boolean;
   leader?: string;
+  onRemember: (file: File, demo: boolean) => void;
 }
 
 function fmt(sec: number): string {
@@ -24,17 +27,18 @@ function fmt(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export default function DeckPanel({ deck, label, ensureAudio, canSync, onSync, syncLocked, leader }: Props) {
+export default function DeckPanel({ deck, label, ensureAudio, canSync, onSync, syncLocked, leader, onRemember }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const loadFile = async (file: File) => {
+  const loadFile = async (file: File, demo = false) => {
     setError(null);
     setLoading(true);
     try {
       await ensureAudio();
       await deck.load(file);
+      onRemember(file, demo);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -53,12 +57,12 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSync, s
   return (
     <section className={`deck deck-${deck.state.id}`} aria-label={label}>
       <header className="deck-head">
-        <span className="deck-label">{label}</span>
-        <button className="btn ghost" onClick={() => void loadFile(makeDemoTrack(deck.state.id))} disabled={loading}>
-          Load demo
+        <span className="deck-label"><b>{deck.state.id}</b> {label.toUpperCase()}</span>
+        <button className="btn ghost" onClick={() => void loadFile(makeDemoTrack(deck.state.id), true)} disabled={loading}>
+          DEMO
         </button>
         <button className="btn ghost" onClick={() => fileInputRef.current?.click()} disabled={loading}>
-          {loading ? 'Loading…' : 'Load track'}
+          {loading ? 'Loading…' : 'LOAD TRACK'}
         </button>
         <input
           ref={fileInputRef}
@@ -70,50 +74,27 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSync, s
         />
       </header>
 
-      <div className="track-name">{track ? track.name : 'No track loaded'}</div>
-      <div className="beat-controls" role="group" aria-label={`${label} beatmatching`}>
-        <div className="bpm-display"><strong>{deck.grid ? (deck.grid.bpm * deck.state.tempo).toFixed(1) : '—'}</strong><span>BPM</span></div>
-        <span className="analysis-status">{deck.analysisStatus === 'analyzing' ? 'Detecting BPM…' :
-          deck.analysisStatus === 'unknown' ? 'No steady beat found — tap or enter BPM' :
-          deck.analysisStatus === 'manual' ? 'Manual grid' : deck.grid ? `Detected · ${deck.grid.confidence >= .6 ? 'strong' : 'check grid'}` : 'Load audio to detect BPM'}</span>
-        <button className={`btn sync-btn ${syncLocked ? 'locked' : ''}`} disabled={!canSync || loading} onClick={onSync}
-          aria-pressed={syncLocked} title="Lock to the other deck’s tempo and beat grid. Press again to unlock.">{syncLocked ? 'Sync locked' : 'Sync'}</button>
-        {syncLocked && <span className="lock-label">Following Deck {leader}</span>}
-        <button className="btn ghost" disabled={!track || loading} onClick={deck.tapTempo} title="Tap at least three times on the beat">Tap tempo</button>
-        <label className="bpm-input">Track BPM
-          <input type="number" aria-label={`${label} track BPM`} min={30} max={300} step={.1}
-            key={`${track?.pathL}-${deck.grid?.bpm ?? 'empty'}`} defaultValue={deck.grid?.bpm ?? ''}
-            disabled={!track || loading} placeholder="BPM"
-            onBlur={(e) => { if(e.target.value) deck.manualGrid(Number(e.target.value)); }}
-            onKeyDown={(e) => { if(e.key === 'Enter') e.currentTarget.blur(); }} />
-        </label>
-        <button className="btn ghost" disabled={!deck.grid || deck.grid.bpm < 60} onClick={() => deck.manualGrid(deck.grid!.bpm / 2)}>÷2</button>
-        <button className="btn ghost" disabled={!deck.grid || deck.grid.bpm > 150} onClick={() => deck.manualGrid(deck.grid!.bpm * 2)}>×2</button>
-        <button className="btn ghost" disabled={!deck.grid} onClick={deck.alignBeat}
-          title="Mark the current playhead as a beat; useful when the automatic grid is offset">Set beat here</button>
+      <div className="track-display">
+        <div className="track-name" title={track?.name}>{track ? track.name : 'LOAD A TRACK TO BEGIN'}</div>
+        <div className="track-stats">
+          <div className="bpm-display"><strong>{deck.grid ? (deck.grid.bpm * deck.state.tempo).toFixed(1) : '—'}</strong><span>BPM</span></div>
+          <div className="track-time"><small>ELAPSED</small><strong>{track ? fmt(deck.position * track.duration) : '0:00'}</strong></div>
+          <div className="track-time remaining"><small>REMAIN</small><strong>−{track ? fmt((1 - deck.position) * track.duration) : '0:00'}</strong></div>
+        </div>
+        <span className="analysis-status">{syncLocked ? `SYNC LOCKED · FOLLOWING ${leader}` : deck.analysisStatus === 'analyzing' ? 'ANALYZING BPM…' :
+          deck.analysisStatus === 'unknown' ? 'NO STEADY BEAT · SET BPM BELOW' :
+          deck.analysisStatus === 'manual' ? 'MANUAL BEAT GRID' : deck.grid ? 'AUTO BPM · BEAT GRID READY' : 'LOCAL AUDIO · NO UPLOADS'}</span>
       </div>
-
       <div className="waveform-wrap">
         <Waveform peaks={track?.peaks ?? null} position={deck.position} onSeek={deck.seek}
           cueNorm={deck.state.cueNorm} loopIn={deck.state.loopIn} loopOut={deck.state.loopOut}
           loopEnabled={deck.state.loopEnabled} label={`${label} waveform`}
-          grid={deck.grid} duration={track?.duration ?? 0} />
+          grid={deck.grid} duration={track?.duration ?? 0} color={deck.state.id === 'A' ? '#36a9ff' : '#ff5265'} />
       </div>
 
-      <div className="transport">
-        <button
-          className={`btn ${deck.state.playing ? 'stop' : 'start'}`}
-          onClick={() => void deck.togglePlay().catch((err) => setError(String(err)))}
-          disabled={!track || syncLocked}
-        >
-          {syncLocked ? `Transport follows ${leader}` : deck.state.playing ? '◼ Pause' : '▶ Play'}
-        </button>
-        <span className="time">
-          {track ? `${fmt(deck.position * track.duration)} / ${fmt(track.duration)}` : '0:00 / 0:00'}
-        </span>
-        <button className="btn ghost" onClick={deck.setCue} disabled={!track}>Set cue</button>
-        <button className="btn ghost" onClick={deck.jumpCue} disabled={deck.state.cueNorm === null}>Go to cue</button>
-      </div>
+      <div className="deck-workbench"><TempoControl deck={deck} locked={syncLocked} />
+        <div className="deck-utility">      <div className="cue-tools"><button className="btn ghost" onClick={deck.setCue} disabled={!track}>SET CUE</button>
+        <span>{deck.state.cueNorm !== null && track ? `Cue ${fmt(deck.state.cueNorm * track.duration)}` : 'Choose a position, then set cue'}</span></div>
 
       <div className="loop-controls" role="group" aria-label={`${label} loop controls`}>
         <span className="control-caption">MANUAL LOOP</span>
@@ -133,6 +114,31 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSync, s
         </span>
       </div>
 
+      <details className="beat-tools" open><summary>BPM & BEAT GRID</summary><div className="beat-controls" role="group" aria-label={`${label} beatmatching`}>
+        <button className="btn ghost" disabled={!track || loading} onClick={deck.tapTempo}>Tap tempo</button>
+        <label className="bpm-input">Track BPM
+          <input type="number" aria-label={`${label} track BPM`} min={30} max={300} step={.1}
+            key={`${track?.pathL}-${deck.grid?.bpm ?? 'empty'}`} defaultValue={deck.grid?.bpm ?? ''}
+            disabled={!track || loading} placeholder="BPM"
+            onBlur={e => { if(e.target.value) deck.manualGrid(Number(e.target.value)); }}
+            onKeyDown={e => { if(e.key === 'Enter') e.currentTarget.blur(); }} />
+        </label>
+        <button className="btn ghost" disabled={!deck.grid || deck.grid.bpm < 60} onClick={() => deck.manualGrid(deck.grid!.bpm / 2)}>÷2</button>
+        <button className="btn ghost" disabled={!deck.grid || deck.grid.bpm > 150} onClick={() => deck.manualGrid(deck.grid!.bpm * 2)}>×2</button>
+        <button className="btn ghost" disabled={!deck.grid} onClick={deck.alignBeat}>Set beat here</button>
+      </div></details>
+
+</div><JogWheel deck={deck} /></div>
+      <div className="transport">
+        <button className="btn cue-btn" onClick={deck.jumpCue} disabled={deck.state.cueNorm === null} title="Return to the saved cue">CUE</button>
+        <button className={`btn play-btn ${deck.state.playing ? 'stop' : 'start'}`}
+          onClick={() => void deck.togglePlay().catch(err => setError(String(err)))} disabled={!track || syncLocked}
+          title={syncLocked ? `Play/Pause follows Deck ${leader}` : 'Play or pause this deck'}>
+          {syncLocked ? `LINK ${leader}` : deck.state.playing ? 'Ⅱ PAUSE' : '▶ PLAY'}
+        </button>
+        <button className={`btn sync-btn ${syncLocked ? 'locked' : ''}`} disabled={!canSync || loading} onClick={onSync}
+          aria-pressed={syncLocked} title="Lock to the other deck. Press again to unlock.">{syncLocked ? 'SYNC ●' : 'SYNC'}</button>
+      </div>
       {error && <p className="error">{error}</p>}
     </section>
   );

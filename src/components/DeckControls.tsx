@@ -12,20 +12,12 @@ function filterLabel(v: number): string {
   return v < 0 ? `LP ${Math.round(-v * 100)}` : `HP ${Math.round(v * 100)}`;
 }
 
-export default function DeckControls({ deck, tempoLocked = false }: { deck: UseDeck; tempoLocked?: boolean }) {
+export default function DeckControls({ deck }: { deck: UseDeck }) {
   const { state, level } = deck;
 
   return (
-    <div className="deck-controls">
-      <div className="tempo-control">
-        <label htmlFor={`tempo-${state.id}`}>TEMPO {state.id}</label>
-        <output htmlFor={`tempo-${state.id}`}>{((state.tempo - 1) * 100).toFixed(1)}%</output>
-        <input id={`tempo-${state.id}`} type="range" min={0.5} max={1.5} step={0.001}
-          value={state.tempo} onChange={(e) => deck.setTempo(Number(e.target.value))} disabled={!state.track || tempoLocked} />
-        <button className="btn ghost" onClick={() => deck.setTempo(1)} disabled={!state.track || tempoLocked}>{tempoLocked ? 'Follows leader' : 'Reset tempo'}</button>
-        <button className={`btn ghost ${state.keyLock ? 'active' : ''}`} aria-pressed={state.keyLock}
-          onClick={deck.toggleKeyLock} title="Keep the original pitch when tempo changes">Key Lock {state.keyLock ? 'ON' : 'OFF'}</button>
-      </div>
+    <div className={`deck-controls channel-${state.id}`} aria-label={`Deck ${state.id} mixer channel`}>
+      <span className="channel-label">{state.id}</span>
       <div className="eq-group">
         <Knob label="HIGH" value={state.eqHigh} min={-12} max={12} onChange={(v) => deck.setEq('eqHigh', v)} format={dB} />
         <Knob label="MID" value={state.eqMid} min={-12} max={12} onChange={(v) => deck.setEq('eqMid', v)} format={dB} />

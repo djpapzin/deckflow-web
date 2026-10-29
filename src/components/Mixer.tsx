@@ -26,6 +26,7 @@ export default function Mixer({ crossfader, setCrossfader, masterVolume, setMast
       <div className="xfader">
         <input
           className="xfader-input"
+          aria-label="Crossfader"
           type="range"
           min={-1}
           max={1}
