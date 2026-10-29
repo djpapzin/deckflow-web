@@ -5,9 +5,10 @@
 import { useRef, useState } from 'react';
 import type { UseDeck } from '../useDeck';
 import Waveform from './Waveform';
-import { makeDemoTrack } from '../demo';
+import { loadDemoSong } from '../demoSong';
 import JogWheel from './JogWheel';
 import TempoControl from './TempoControl';
+import { STEM_MODES } from '../stemModes';
 import { validLoop } from '../transport';
 
 interface Props {
@@ -50,6 +51,13 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
     }
   };
 
+  const loadDemo = async () => {
+    setLoading(true); setError(null);
+    try { await ensureAudio(); await loadFile(await loadDemoSong(), true); }
+    catch (err) { setError(String(err)); }
+    finally { setLoading(false); }
+  };
+
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) void loadFile(file);
@@ -61,7 +69,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
     <section className={`deck deck-${deck.state.id} ${selected ? 'selected-deck' : ''}`} aria-label={label} onPointerDownCapture={onSelect} onFocusCapture={onSelect}>
       <header className="deck-head">
         <span className="deck-label"><b>{deck.state.id}</b> {label.toUpperCase()} {selected ? '· SPACE ▶/Ⅱ' : ''}</span>
-        <button className="btn ghost" onClick={() => void loadFile(makeDemoTrack(deck.state.id), true)} disabled={loading}>
+        <button className="btn ghost" onClick={() => void loadDemo()} disabled={loading}>
           DEMO
         </button>
         <button className="btn ghost" onClick={() => fileInputRef.current?.click()} disabled={loading}>
@@ -134,14 +142,14 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
 </div><JogWheel deck={deck} /></div>
       <div className="stem-controls" role="group" aria-label={`${label} stem controls`}>
         <span className="control-caption">STEMS</span>
-        <button className={`btn ghost ${deck.stemMix.vocals ? 'active' : ''}`} disabled={!deck.stemsReady}
-          aria-pressed={deck.stemMix.vocals} onClick={() => deck.selectStems(!deck.stemMix.vocals, deck.stemMix.instrumental)}>VOCALS</button>
-        <button className={`btn ghost ${deck.stemMix.instrumental ? 'active' : ''}`} disabled={!deck.stemsReady}
-          aria-pressed={deck.stemMix.instrumental} onClick={() => deck.selectStems(deck.stemMix.vocals, !deck.stemMix.instrumental)}>INSTRUMENTAL</button>
-        <button className="btn ghost" disabled={!deck.stemsReady} onClick={() => deck.selectStems(true, false)}>ACAPELLA</button>
-        <button className="btn ghost" disabled={!deck.stemsReady} onClick={() => deck.selectStems(true, true)}>FULL MIX</button>
+        {STEM_MODES.map(mode => <button key={mode.id}
+          className={`btn ghost ${deck.stemMode === mode.id ? 'active' : ''}`} disabled={!deck.stemsReady}
+          aria-pressed={deck.stemMode === mode.id} onClick={() => deck.selectStems(mode.id)}>{mode.label}</button>)}
+        {deck.stemsReady && deck.preparedQuality === 'fast' && <button className="btn ghost"
+          title="Prepare this track with two passes. Full Mix plays while preparing."
+          onClick={deck.upgradeStems}>BETTER QUALITY</button>}
         <small role="status">{deck.stemStatus}</small>
-        {!deck.stemsReady && track && <button className="btn ghost" onClick={deck.retryStems}>RETRY STEMS</button>}
+        {deck.stemsFailed && track && <button className="btn ghost" onClick={deck.retryStems}>RETRY STEMS</button>}
       </div>
       <div className="hot-cues" role="group" aria-label={`${label} hot cues`}>
         <span>HOT CUES</span>{deck.state.hotCues.map((cue, index) => <button key={index}

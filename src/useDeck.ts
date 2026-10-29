@@ -5,7 +5,9 @@ import { decodeTrack, publishTrack } from './track';
 import { initialDeckState, METER_EVENT_SUFFIX } from './deck';
 import { reducer, clamp01, type EqBand, type Action } from './transport';
 import type { BeatGrid } from './bpmAnalysis';
+import type { StemMode } from './stemModes';
 import { prepareStems } from './stemClient';
+import type { StemQuality } from './stemProgress';
 
 export function useDeck(id: string, audioReady: boolean) {
   const [state, dispatch] = useReducer(reducer, id, initialDeckState);
@@ -16,19 +18,25 @@ export function useDeck(id: string, audioReady: boolean) {
   const positionRef = useRef(position);
   const [stemStatus, setStemStatus] = useState('Load a track to prepare stems automatically');
   const [stemsReady, setStemsReady] = useState(false);
-  const [stemMix, setStemMix] = useState({ vocals:true, instrumental:true });
+  const [stemsFailed, setStemsFailed] = useState(false);
+  const [stemMode, setStemMode] = useState<StemMode>('full');
+  const [preparedQuality, setPreparedQuality] = useState<StemQuality>('fast');
   const stemAbort = useRef<AbortController | null>(null);
   const lastFile = useRef<File | null>(null);
-  const prepare = useCallback(async (file: File, gen: number) => {
+  const requestedQualityRef = useRef<StemQuality>('fast');
+  const prepare = useCallback(async (file: File, gen: number, requestedQuality: StemQuality = 'fast') => {
     const rt = getRuntime(); if (!rt) return;
     stemAbort.current?.abort(); const controller = new AbortController(); stemAbort.current = controller;
     const token = rt.stems[id].token();
+    const quality = requestedQuality;
+    requestedQualityRef.current = quality;
+    setStemsFailed(false);
     setStemStatus('Connecting to local separator…');
     try {
-      await prepareStems(file, rt, id, token, controller.signal, text => { if (loadGen.current === gen) setStemStatus(text); });
+      await prepareStems(file, rt, id, token, controller.signal, text => { if (loadGen.current === gen) setStemStatus(text); }, quality);
       if (loadGen.current !== gen || controller.signal.aborted) return;
-      setStemsReady(true); setStemStatus('STEMS READY · switch live');
-    } catch (error) { if (!controller.signal.aborted && loadGen.current === gen) setStemStatus(error instanceof Error ? error.message : String(error)); }
+      setPreparedQuality(quality); setStemsReady(true); setStemStatus(`STEMS READY · ${quality === 'fast' ? 'Fast' : 'Best Quality'} · switch live`);
+    } catch (error) { if (!controller.signal.aborted && loadGen.current === gen) { setStemsFailed(true); setStemStatus(error instanceof Error ? error.message : String(error)); } }
   }, [id]);
   useEffect(() => () => stemAbort.current?.abort(), []);
   const loadGen = useRef(0);
@@ -88,7 +96,7 @@ export function useDeck(id: string, audioReady: boolean) {
     if (scratchGesture.current) { scratchGesture.current = null; rt.scratch[id].stop(); }
     const gen = ++loadGen.current;
     stemAbort.current?.abort();
-    setStemsReady(false); setStemMix({ vocals:true, instrumental:true });
+    setStemsFailed(false); setStemsReady(false); setStemMode('full');
     setStemStatus('Waiting for track to load…');
     const decoded = await decodeTrack(rt, file);
     if (gen !== loadGen.current) return;
@@ -123,10 +131,16 @@ export function useDeck(id: string, audioReady: boolean) {
     } catch { setAnalysisStatus('unknown'); }
   }, [id, showPosition, prepare]);
 
-  const retryStems = () => { if (lastFile.current) void prepare(lastFile.current, loadGen.current); };
-  const selectStems = (vocals: boolean, instrumental: boolean) => {
+  const upgradeStems = () => {
+    const rt = getRuntime(); if (!rt || !lastFile.current) return;
+    rt.stems[id].reset(); rt.scratch[id].select('full');
+    setStemMode('full'); setStemsReady(false);
+    void prepare(lastFile.current, loadGen.current, 'best');
+  };
+  const retryStems = () => { if (lastFile.current) void prepare(lastFile.current, loadGen.current, requestedQualityRef.current); };
+  const selectStems = (mode: StemMode) => {
     if (!stemsReady) return;
-    setStemMix({ vocals, instrumental }); getRuntime()?.stems[id].select(vocals, instrumental); getRuntime()?.scratch[id].select(vocals, instrumental);
+    setStemMode(mode); getRuntime()?.stems[id].select(mode); getRuntime()?.scratch[id].select(mode);
   };
   const seek = useCallback((norm: number) => transport({ type: 'SEEK', norm }), [transport]);
   const togglePlay = useCallback(async () => {
@@ -204,7 +218,7 @@ export function useDeck(id: string, audioReady: boolean) {
   const toggleKeyLock = () => dispatch({ type: 'KEY_LOCK' });
   const syncTo = (norm: number, tempo: number) => transport({ type: 'SYNC', norm, tempo });
 
-  return { state, position, level, stemStatus, stemsReady, stemMix, retryStems, selectStems, load, togglePlay, seek, setVolume, setEq, setFilter,
+  return { state, position, level, stemStatus, stemsReady, stemsFailed, stemMode, preparedQuality, upgradeStems, retryStems, selectStems, load, togglePlay, seek, setVolume, setEq, setFilter,
     setTempo, setCue, jumpCue, cueDown, cueUp, hotCue, scratchDown, scratchMove, scratchUp, loopAction, grid, analysisStatus, manualGrid, tapTempo,
     alignBeat, syncTo, readPosition, follow, toggleKeyLock };
 }

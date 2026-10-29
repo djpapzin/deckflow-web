@@ -1,8 +1,9 @@
+import { stemGains, type StemMode } from './stemModes';
 import SignalsmithStretch from './vendor/SignalsmithStretch.mjs';
 import type { DeckPlayer } from './playback';
 import type { StretchNode } from './vendor/SignalsmithStretch.mjs';
 
-/** All three versions use the same deck timeline; switching only changes gains. */
+/** All stem versions use the same deck timeline; switching only changes gains. */
 export class StemPlayback {
   private nodes: StretchNode[] = [];
   private gains: GainNode[] = [];
@@ -15,11 +16,11 @@ export class StemPlayback {
     this.nodes = []; this.gains.forEach(g => g.disconnect()); this.gains = [];
     this.original.gain.cancelScheduledValues(this.ctx.currentTime); this.original.gain.setValueAtTime(1, this.ctx.currentTime);
   }
-  async load(vocals: AudioBuffer, instrumental: AudioBuffer, generation: number) {
+  async load(buffers: AudioBuffer[], generation: number) {
     const localGen = this.generation;
     const nodes: StretchNode[] = [], gains: GainNode[] = [];
     try {
-      for (const buffer of [vocals, instrumental]) {
+      for (const buffer of buffers) {
         const node = await SignalsmithStretch(this.ctx, { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] });
         nodes.push(node);
         const channels = [buffer.getChannelData(0).slice(), buffer.getChannelData(Math.min(1, buffer.numberOfChannels - 1)).slice()];
@@ -32,11 +33,11 @@ export class StemPlayback {
     } catch (error) { nodes.forEach(n => { void n.dispose(); n.disconnect(); }); gains.forEach(g => g.disconnect()); throw error; }
   }
   token() { return this.generation; }
-  select(vocals: boolean, instrumental: boolean) {
+  select(mode: StemMode) {
     if (!this.ready) return;
     const now = this.ctx.currentTime;
     // The original is used for Full Mix, avoiding separation reconstruction artifacts.
-    const values = [vocals && instrumental ? 1 : 0, vocals && !instrumental ? 1 : 0, instrumental && !vocals ? 1 : 0];
+    const values = stemGains(mode);
     [this.original, ...this.gains].forEach((gain, i) => { gain.gain.cancelScheduledValues(now); gain.gain.setTargetAtTime(values[i], now, .008); });
   }
 }

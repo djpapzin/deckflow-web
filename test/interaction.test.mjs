@@ -42,8 +42,8 @@ test('moving waveform stays centered from beginning to end and overview stays wi
 });
 function panel(deck) {
   const src=compile('../src/components/DeckPanel.tsx').replace(/^import .*;$/gm,'').replace('export default function','function');
-  return new Function('useRef','useState','_jsx','_jsxs','Waveform','JogWheel','TempoControl','validLoop',src+'\nreturn DeckPanel;')(
-    ()=>({current:null}),v=>[v,()=>{}],(type,props)=>({type,props}),(type,props)=>({type,props}),'Waveform','JogWheel','TempoControl',()=>false
+  return new Function('useRef','useState','_jsx','_jsxs','Waveform','JogWheel','TempoControl','validLoop','STEM_MODES',src+'\nreturn DeckPanel;')(
+    ()=>({current:null}),v=>[v,()=>{}],(type,props)=>({type,props}),(type,props)=>({type,props}),'Waveform','JogWheel','TempoControl',()=>false,[{id:'full',label:'FULL MIX'},{id:'beat',label:'BEAT'},{id:'acapella',label:'ACAPELLA'},{id:'instrumental',label:'INSTRUMENTAL'},{id:'vocal-reprise',label:'VOCAL REPRISE'},{id:'instrumental-reprise',label:'INSTRUMENTAL REPRISE'}]
   )({deck,label:'Deck A',ensureAudio:async()=>{},canSync:true,onSync:()=>{},onBeatLock:()=>{},onSelect:()=>{},selected:true,onRemember:()=>{}});
 }
 function buttons(node) {
@@ -52,7 +52,7 @@ function buttons(node) {
   return [...(node.type==='button'?[node.props]:[]),...buttons(node.props?.children)];
 }
 test('actual Cue and numbered pad handlers dispatch holds, releases and shift-clear',()=>{
-  const calls=[];const deck={stemMix:{vocals:true,instrumental:true},stemsReady:false,stemStatus:"",state:{id:'A',track:{duration:100},hotCues:[null,.1,null,.3,null],cueNorm:0,eqLow:0},position:.2,
+  const calls=[];const deck={stemMode:'full',stemsReady:false,stemStatus:"",state:{id:'A',track:{duration:100},hotCues:[null,.1,null,.3,null],cueNorm:0,eqLow:0},position:.2,
     cueDown:()=>calls.push('down'),cueUp:()=>calls.push('up'),hotCue:(i,clear)=>calls.push([i,clear])};
   const all=buttons(panel(deck));const cue=all.find(b=>b.children==='CUE');
   const event={button:0,pointerId:1,currentTarget:{setPointerCapture:()=>{}},preventDefault:()=>{},key:' ',repeat:false};
@@ -61,4 +61,23 @@ test('actual Cue and numbered pad handlers dispatch holds, releases and shift-cl
   const pads=all.filter(b=>b['aria-label']?.startsWith('Deck A hot cue '));assert.equal(pads.length,5);
   pads[0].onClick({shiftKey:false});pads[4].onClick({shiftKey:true});
   assert.deepEqual(calls.slice(-2),[[0,false],[4,true]]);
+});
+
+test('six stem modes have distinct labels and dispatch their selected mode',()=>{
+ const selected=[];
+ const all=buttons(panel({state:{id:'A',track:{duration:45},hotCues:Array(5).fill(null),cueNorm:0},stemMode:'vocal-reprise',stemsReady:true,
+   stemStatus:'ready',selectStems:mode=>selected.push(mode),position:0}));
+ const modes=all.filter(b=>['FULL MIX','BEAT','ACAPELLA','INSTRUMENTAL','VOCAL REPRISE','INSTRUMENTAL REPRISE'].includes(b.children));
+ assert.equal(modes.length,6);assert.equal(modes.filter(b=>b['aria-pressed']).length,1);
+ for(const mode of modes) mode.onClick();
+ assert.deepEqual(new Set(selected),new Set(['full','beat','acapella','instrumental','vocal-reprise','instrumental-reprise']));
+ assert.equal(all.some(b=>b.children==='VOCALS'),false);
+});
+
+test('Retry Stems appears only after failure, never during preparation or when ready',()=>{
+ const deck={state:{id:'A',track:{duration:45},hotCues:Array(5).fill(null),cueNorm:0},stemMode:'full',stemStatus:'',position:0};
+ for(const [stemsReady,stemsFailed,expected] of [[false,false,false],[true,false,false],[false,true,true]]) {
+  const all=buttons(panel({...deck,stemsReady,stemsFailed}));
+  assert.equal(all.some(b=>b.children==='RETRY STEMS'),expected);
+ }
 });

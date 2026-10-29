@@ -1,4 +1,4 @@
-# DeckFlow Web
+# DeckFlow Web v1.0
 
 A browser DJ mixing prototype with two decks, automatic BPM detection, continuous
 Sync, and pitch-preserving Key Lock. The compact blue/red console is inspired by
@@ -70,18 +70,21 @@ for the upstream IBM material; retain its provenance when reusing it.
 
 Run `scripts/start-stems.command`, then open http://127.0.0.1:8787 in your browser.
 Requires the installed audio-separator CLI at ~/.local/share/deckflow-stems/venv/bin/audio-separator,
-UVR-MDX-NET-Inst_HQ_1.onnx in the UVR app model directory, and the UVR bundled ffmpeg.
+the htdemucs.yaml model (downloaded automatically into ~/.local/share/deckflow-stems/models), and the UVR bundled ffmpeg.
 The companion binds only to 127.0.0.1 and hosts the production app locally.
 The GitHub Pages app can also connect to the companion if the browser allows localhost requests;
 the localhost app avoids cross-origin/local-network restrictions.
 
 Loading a track automatically queues local separation; the original remains playable.
-Once STEMS READY appears: ACAPELLA isolates vocals, VOCALS/INSTRUMENTAL toggle each part,
-and FULL MIX restores the original recording. Both off silences that deck. Stem players share
+Once STEMS READY appears, select exactly one mode: FULL MIX uses the original recording;
+INSTRUMENTAL mixes drums, bass and other instruments; ACAPELLA uses vocals; VOCAL REPRISE
+mixes vocals, bass and other instruments without drums; INSTRUMENTAL REPRISE mixes bass
+and other instruments without vocals or drums. There is no duplicate Vocals control. Stem players share
 all scheduled transport, tempo, key-lock, loop and Sync changes; switching gains does not seek.
-Scratch playback uses the selected stem pair too. This is two-part separation, not separate
-drums/bass/other controls. First processing takes time (about one minute for the 45-second sample);
-repeat loads reuse cached results. There is extra memory overhead for the two stereo stems.
+Scratch playback uses the selected stem pair too. Preparation separates vocals, drums, bass and other instruments. Drum removal may leave
+some percussion bleed. Tracks with no vocals should have similar reprise versions, but vocal
+separation artifacts can make them differ slightly. First processing takes time;
+repeat loads reuse cached results. There is extra memory overhead for the four stereo stems.
 
 Tracks (up to 100 MB) and results stay in ~/Library/Application Support/DeckFlow/stems.
 This cache persists across reloads; remove its contents manually when no jobs are running
@@ -89,3 +92,7 @@ to reclaim space. One job runs at a time, with up to eight queued/active jobs an
 job timeout. Separation errors leave normal playback usable; RETRY STEMS retries preparation.
 Replacing a deck discards stale UI/audio attachment results but a queued separation may finish
 and remain cached. The companion must remain running. No music is sent to an external server.
+
+Clicking DEMO on either deck loads the 45-second Let's Go Fishin’ vocal demo, paused; nothing loads automatically at startup.
+The demo is by Karissa Hobbs (CC BY 3.0); attribution is available beside the console
+and in public/demo-song-license.txt. Playback starts only when Play is pressed.

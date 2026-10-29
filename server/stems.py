@@ -5,42 +5,67 @@ import json
 import os
 from pathlib import Path
 import re
+import select
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from threading import Lock
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = Path.home() / 'Library/Application Support/DeckFlow/stems'
 CLI = Path.home() / '.local/share/deckflow-stems/venv/bin/audio-separator'
-MODELS = Path('/Applications/Ultimate Vocal Remover.app/Contents/Resources/models/MDX_Net_Models')
-MODEL = 'UVR-MDX-NET-Inst_HQ_1.onnx'
+MODELS = Path.home() / '.local/share/deckflow-stems/models'
+MODEL = 'htdemucs.yaml'
+CACHE_VERSION = MODEL + ':cpu-float-v1'
 FFMPEG = '/Applications/Ultimate Vocal Remover.app/Contents/Resources'
 POOL = ThreadPoolExecutor(max_workers=1)
 JOBS = {}
 LOCK = Lock()
 MAX_BYTES = 100 * 1024 * 1024
+WORKER = None
+WORKER_LOG = None
+
+def separate_track(folder, quality='best'):
+    """Called by the single-thread queue; retain weights for the next song."""
+    global WORKER, WORKER_LOG
+    if WORKER is None or WORKER.poll() is not None:
+        if WORKER_LOG: WORKER_LOG.close()
+        DATA.mkdir(parents=True, exist_ok=True)
+        WORKER_LOG = (DATA/'worker.log').open('a')
+        env = dict(os.environ, PATH=FFMPEG + os.pathsep + os.environ.get('PATH', ''))
+        WORKER = subprocess.Popen([str(CLI.parent/'python'), str(ROOT/'server/separate.py'),
+            str(MODELS), MODEL], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=WORKER_LOG, text=True, env=env)
+    try:
+        WORKER.stdin.write(json.dumps({'source':str(folder/'input.audio'), 'destination':str(folder), 'shifts':1 if quality == 'fast' else 2})+'\n')
+        WORKER.stdin.flush()
+        if not select.select([WORKER.stdout], [], [], 1800)[0]: raise TimeoutError('Separation timed out')
+        result = json.loads(WORKER.stdout.readline())
+        if not result.get('ok'): raise RuntimeError(result.get('error','Worker failed'))
+        (folder/'processing.json').write_text(json.dumps(result))
+    except Exception:
+        WORKER.kill(); WORKER.wait(); WORKER = None
+        raise
 
 def allowed(origin):
     if not origin: return False
     parsed = urlparse(origin)
-    return origin == 'https://djpapzin.github.io' or (parsed.scheme == 'http' and parsed.hostname in ('127.0.0.1', 'localhost') and parsed.path == '')
+    return origin in ('https://djpapzin.github.io', 'https://deckflow.djpapzin.com') or (parsed.scheme == 'http' and parsed.hostname in ('127.0.0.1', 'localhost') and parsed.path == '')
 
-def run_job(key):
+def run_job(key, quality='best'):
     folder = DATA / key
     with LOCK: JOBS[key] = 'processing'
     try:
-        env = dict(os.environ, PATH=FFMPEG + os.pathsep + os.environ.get('PATH', ''))
-        with (folder / 'processing.log').open('w') as log:
-            subprocess.run([str(CLI), str(folder/'input.audio'), '--model_filename', MODEL,
-                '--model_file_dir', str(MODELS), '--output_dir', str(folder), '--output_format', 'WAV'],
-                check=True, env=env, stdout=log, stderr=log, timeout=1800)
-        for stem in ('Vocals', 'Instrumental'):
-            matches = list(folder.glob('*(' + stem + ')*.wav'))
-            if len(matches) != 1: raise ValueError('Missing stem output')
-            matches[0].replace(folder / (stem.lower() + '.wav'))
-        (folder/'complete.json').write_text(json.dumps({'model': MODEL}))
+        separate_track(folder, quality)
+        for stem in ('vocals', 'drums', 'bass', 'other'):
+            if not (folder/(stem+'.wav')).exists(): raise ValueError('Missing stem output')
+        # Retain the old two-part endpoint for previously deployed clients.
+        subprocess.run([str(Path(FFMPEG)/'ffmpeg'), '-nostdin', '-v', 'error', '-y',
+            '-i', str(folder/'drums.wav'), '-i', str(folder/'bass.wav'), '-i', str(folder/'other.wav'),
+            '-filter_complex', 'amix=inputs=3:normalize=0', '-c:a', 'pcm_f32le', str(folder/'instrumental.wav')],
+            check=True, timeout=180)
+        (folder/'complete.json').write_text(json.dumps({'model': MODEL, 'pipeline': CACHE_VERSION, 'quality':quality}))
         with LOCK: JOBS[key] = 'ready'
     except Exception:
         with LOCK: JOBS[key] = 'error'
@@ -72,6 +97,8 @@ class Handler(SimpleHTTPRequestHandler):
         if self.headers.get('Host') not in ('127.0.0.1:8787','localhost:8787'): return self.reply(403, {'error':'Host not allowed'})
         if urlparse(self.path).path != '/api/stems': return self.reply(404, {'error':'Not found'})
         if not allowed(self.request_origin()): return self.reply(403, {'error':'Origin not allowed'})
+        quality = parse_qs(urlparse(self.path).query).get('quality',['best'])[0]
+        if quality not in ('fast','best'): return self.reply(400, {'error':'Invalid quality'})
         try: length = int(self.headers.get('Content-Length', '0'))
         except ValueError: return self.reply(400, {'error':'Invalid length'})
         if length <= 0 or length > MAX_BYTES: return self.reply(413, {'error':'Choose a track under 100 MB'})
@@ -80,11 +107,12 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.reply(429, {'error':'Queue full; try again shortly'})
         data = self.rfile.read(length)
         if len(data) != length: return self.reply(400, {'error':'Incomplete upload'})
-        key = hashlib.sha256(MODEL.encode()+data).hexdigest(); folder = DATA/key
+        version = CACHE_VERSION if quality == 'best' else CACHE_VERSION + ':fast'
+        key = hashlib.sha256(version.encode()+data).hexdigest(); folder = DATA/key
         with LOCK:
             if not (folder/'complete.json').exists() and JOBS.get(key) not in ('queued','processing'):
                 folder.mkdir(parents=True, exist_ok=True); (folder/'input.audio').write_bytes(data)
-                JOBS[key] = 'queued'; POOL.submit(run_job,key)
+                JOBS[key] = 'queued'; POOL.submit(run_job,key,quality)
         return self.reply(202, {'id':key})
     def do_GET(self):
         if self.headers.get('Host') not in ('127.0.0.1:8787','localhost:8787'): return self.reply(403, {'error':'Host not allowed'})
@@ -93,7 +121,7 @@ class Handler(SimpleHTTPRequestHandler):
             # API responses and audio are available only to the known app origins.
             if not allowed(self.request_origin()): return self.reply(403, {'error':'Origin not allowed'})
             if path == '/api/health': return self.reply(200, {'ready':CLI.exists(), 'model':MODEL})
-            match = re.fullmatch(r'/api/stems/([a-f0-9]{64})(?:/(vocals|instrumental)\.wav)?', path)
+            match = re.fullmatch(r'/api/stems/([a-f0-9]{64})(?:/(vocals|drums|bass|other|instrumental)\.wav)?', path)
             if not match: return self.reply(404, {'error':'Not found'})
             key, stem = match.groups(); folder = DATA/key
             ready = (folder/'complete.json').exists()
