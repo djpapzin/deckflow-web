@@ -96,3 +96,17 @@ and remain cached. The companion must remain running. No music is sent to an ext
 Clicking DEMO on either deck loads the 45-second Let's Go Fishin’ vocal demo, paused; nothing loads automatically at startup.
 The demo is by Karissa Hobbs (CC BY 3.0); attribution is available beside the console
 and in public/demo-song-license.txt. Playback starts only when Play is pressed.
+
+## Development and releases
+
+Production is `https://deckflow.djpapzin.com`, deployed by GitHub Pages from `main`.
+The development preview is `https://dev.deckflow.djpapzin.com`, deployed to the
+separate Cloudflare Pages project `deckflow-dev` by `.github/workflows/dev.yml`.
+Pushes to `dev` run tests and build with `VITE_APP_ENV=development`, showing a
+DEV PREVIEW badge. The preview sends a noindex header. It still needs the local
+stem companion; it is not a hosted separation service.
+
+The dev workflow requires the encrypted GitHub secrets `CLOUDFLARE_DEV_API_TOKEN`
+(Pages Edit permission for the hosting account) and `CLOUDFLARE_ACCOUNT_ID`.
+Promote tested changes through a `dev` → `main` pull request after Codex review.
+Pushing `dev` does not deploy production.

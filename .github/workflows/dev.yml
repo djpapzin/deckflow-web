@@ -1,0 +1,41 @@
+name: Test and deploy DeckFlow dev
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+permissions:
+  contents: read
+  deployments: write
+concurrency:
+  group: deckflow-dev
+  cancel-in-progress: true
+jobs:
+  deploy-dev:
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+      url: https://dev.deckflow.djpapzin.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+        env:
+          VITE_APP_ENV: development
+      - name: Keep preview out of search results
+        run: 'printf "/*\n  X-Robots-Tag: noindex, nofollow\n" > dist/_headers'
+      - name: Deploy dev preview
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_DEV_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=deckflow-dev --branch=dev
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}

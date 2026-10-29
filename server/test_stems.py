@@ -52,6 +52,8 @@ class ApiTests(unittest.TestCase):
         code,_,headers=self.call('GET','/api/health',origin='https://deckflow.djpapzin.com')
         self.assertEqual(code,200)
         self.assertEqual(headers['Access-Control-Allow-Origin'],'https://deckflow.djpapzin.com')
+        self.assertEqual(self.call('GET','/api/health',origin='https://dev.deckflow.djpapzin.com')[0],200)
+        self.assertEqual(self.call('GET','/api/health',origin='https://fake.dev.deckflow.djpapzin.com')[0],403)
 
 if __name__ == '__main__': unittest.main()
 
