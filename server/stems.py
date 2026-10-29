@@ -14,8 +14,8 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parent.parent
 DATA = Path.home() / 'Library/Application Support/DeckFlow/stems'
 CLI = Path.home() / '.local/share/deckflow-stems/venv/bin/audio-separator'
-MODELS = Path('/Applications/Ultimate Vocal Remover.app/Contents/Resources/models/MDX_Net_Models')
-MODEL = 'UVR-MDX-NET-Inst_HQ_1.onnx'
+MODELS = Path.home() / '.local/share/deckflow-stems/models'
+MODEL = 'htdemucs.yaml'
 FFMPEG = '/Applications/Ultimate Vocal Remover.app/Contents/Resources'
 POOL = ThreadPoolExecutor(max_workers=1)
 JOBS = {}
@@ -36,10 +36,15 @@ def run_job(key):
             subprocess.run([str(CLI), str(folder/'input.audio'), '--model_filename', MODEL,
                 '--model_file_dir', str(MODELS), '--output_dir', str(folder), '--output_format', 'WAV'],
                 check=True, env=env, stdout=log, stderr=log, timeout=1800)
-        for stem in ('Vocals', 'Instrumental'):
+        for stem in ('Vocals', 'Drums', 'Bass', 'Other'):
             matches = list(folder.glob('*(' + stem + ')*.wav'))
             if len(matches) != 1: raise ValueError('Missing stem output')
             matches[0].replace(folder / (stem.lower() + '.wav'))
+        # Retain the old two-part endpoint for previously deployed clients.
+        subprocess.run([str(Path(FFMPEG)/'ffmpeg'), '-nostdin', '-v', 'error', '-y',
+            '-i', str(folder/'drums.wav'), '-i', str(folder/'bass.wav'), '-i', str(folder/'other.wav'),
+            '-filter_complex', 'amix=inputs=3:normalize=0', '-c:a', 'pcm_f32le', str(folder/'instrumental.wav')],
+            check=True, timeout=180)
         (folder/'complete.json').write_text(json.dumps({'model': MODEL}))
         with LOCK: JOBS[key] = 'ready'
     except Exception:
@@ -93,7 +98,7 @@ class Handler(SimpleHTTPRequestHandler):
             # API responses and audio are available only to the known app origins.
             if not allowed(self.request_origin()): return self.reply(403, {'error':'Origin not allowed'})
             if path == '/api/health': return self.reply(200, {'ready':CLI.exists(), 'model':MODEL})
-            match = re.fullmatch(r'/api/stems/([a-f0-9]{64})(?:/(vocals|instrumental)\.wav)?', path)
+            match = re.fullmatch(r'/api/stems/([a-f0-9]{64})(?:/(vocals|drums|bass|other|instrumental)\.wav)?', path)
             if not match: return self.reply(404, {'error':'Not found'})
             key, stem = match.groups(); folder = DATA/key
             ready = (folder/'complete.json').exists()

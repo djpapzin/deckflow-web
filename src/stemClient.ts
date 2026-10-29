@@ -22,7 +22,7 @@ export async function prepareStems(file: File, rt: AudioRuntime, id: string, tok
     const { status: state } = await (await request(`/api/stems/${job}`)).json();
     if (state === 'ready') break;
     if (state === 'error' || state === 'missing') throw new Error('Separation failed. Retry or check the local service log.');
-    status(state === 'queued' ? 'Queued for separation…' : 'Separating vocals and instruments…');
+    status(state === 'queued' ? 'Queued for separation…' : 'Separating vocals, drums, bass and melody…');
     await new Promise<void>((resolve, reject) => {
       const cancel = () => { clearTimeout(timer); reject(new DOMException('Cancelled','AbortError')); };
       const timer = setTimeout(() => { signal.removeEventListener('abort', cancel); resolve(); }, 1500);
@@ -30,10 +30,10 @@ export async function prepareStems(file: File, rt: AudioRuntime, id: string, tok
     });
   }
   status('Loading aligned stems…');
-  const buffers = await Promise.all(['vocals','instrumental'].map(async stem => rt.ctx.decodeAudioData(await (await request(`/api/stems/${job}/${stem}.wav`)).arrayBuffer())));
+  const buffers = await Promise.all(['vocals','drums','bass','other'].map(async stem => rt.ctx.decodeAudioData(await (await request(`/api/stems/${job}/${stem}.wav`)).arrayBuffer())));
   signal.throwIfAborted();
   if (buffers.some(b => Math.abs(b.duration - rt.players[id].duration) > .1)) throw new Error('Stem duration does not match this track');
-  await rt.stems[id].load(buffers[0],buffers[1],token);
+  await rt.stems[id].load(buffers,token);
   signal.throwIfAborted();
-  rt.scratch[id].loadStems(buffers[0], buffers[1]);
+  rt.scratch[id].loadStems(buffers);
 }

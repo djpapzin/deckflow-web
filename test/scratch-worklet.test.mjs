@@ -43,12 +43,12 @@ test('scratch attack and stop ramp rather than abruptly switching full amplitude
   const moving=render()[0]; assert.ok(moving[0]<.4); assert.ok(moving[4]>.8);
   send({type:'stop'});const stopped=render()[0]; assert.ok(stopped[0]<moving[127]);assert.ok(stopped.slice(4).every(x=>x===0));
 });
-test('scratch follows vocal/instrumental switches without restarting the platter',()=>{
- const {send,render}=processor();const channels=()=>[new Float32Array(1000).fill(.7),new Float32Array(1000).fill(.7)];
- send({type:'load',channels:channels()});
- send({type:'stems',stems:[[new Float32Array(1000).fill(.2),new Float32Array(1000).fill(.2)],[new Float32Array(1000).fill(.5),new Float32Array(1000).fill(.5)]]});
+test('scratch follows both reprise modes without drums or restarting the platter',()=>{
+ const {send,render}=processor();
+ const stereo=value=>[new Float32Array(1000).fill(value),new Float32Array(1000).fill(value)];
+ send({type:'load',channels:stereo(.8)});
+ send({type:'stems',stems:[stereo(.2),stereo(.5),stereo(.1),stereo(.15)]});
  send({type:'start',position:.2});send({type:'move',position:.5,seconds:.05});
- send({type:'mix',vocals:true,instrumental:false});assert.ok(Math.abs(render()[0][20]-.2)<1e-6);
- send({type:'move',position:.7,seconds:.05});send({type:'mix',vocals:false,instrumental:true});assert.ok(Math.abs(render()[0][20]-.5)<1e-6);
- send({type:'mix',vocals:false,instrumental:false});assert.ok(render()[0].every(x=>x===0));
+ send({type:'mix',gains:[0,1,0,1,1]});assert.ok(Math.abs(render()[0][20]-.45)<1e-6);
+ send({type:'move',position:.7,seconds:.05});send({type:'mix',gains:[0,0,0,1,1]});assert.ok(Math.abs(render()[0][20]-.25)<1e-6);
 });

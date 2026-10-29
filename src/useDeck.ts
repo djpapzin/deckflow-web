@@ -5,6 +5,7 @@ import { decodeTrack, publishTrack } from './track';
 import { initialDeckState, METER_EVENT_SUFFIX } from './deck';
 import { reducer, clamp01, type EqBand, type Action } from './transport';
 import type { BeatGrid } from './bpmAnalysis';
+import type { StemMode } from './stemModes';
 import { prepareStems } from './stemClient';
 
 export function useDeck(id: string, audioReady: boolean) {
@@ -16,7 +17,7 @@ export function useDeck(id: string, audioReady: boolean) {
   const positionRef = useRef(position);
   const [stemStatus, setStemStatus] = useState('Load a track to prepare stems automatically');
   const [stemsReady, setStemsReady] = useState(false);
-  const [stemMix, setStemMix] = useState({ vocals:true, instrumental:true });
+  const [stemMode, setStemMode] = useState<StemMode>('full');
   const stemAbort = useRef<AbortController | null>(null);
   const lastFile = useRef<File | null>(null);
   const prepare = useCallback(async (file: File, gen: number) => {
@@ -88,7 +89,7 @@ export function useDeck(id: string, audioReady: boolean) {
     if (scratchGesture.current) { scratchGesture.current = null; rt.scratch[id].stop(); }
     const gen = ++loadGen.current;
     stemAbort.current?.abort();
-    setStemsReady(false); setStemMix({ vocals:true, instrumental:true });
+    setStemsReady(false); setStemMode('full');
     setStemStatus('Waiting for track to load…');
     const decoded = await decodeTrack(rt, file);
     if (gen !== loadGen.current) return;
@@ -124,9 +125,9 @@ export function useDeck(id: string, audioReady: boolean) {
   }, [id, showPosition, prepare]);
 
   const retryStems = () => { if (lastFile.current) void prepare(lastFile.current, loadGen.current); };
-  const selectStems = (vocals: boolean, instrumental: boolean) => {
+  const selectStems = (mode: StemMode) => {
     if (!stemsReady) return;
-    setStemMix({ vocals, instrumental }); getRuntime()?.stems[id].select(vocals, instrumental); getRuntime()?.scratch[id].select(vocals, instrumental);
+    setStemMode(mode); getRuntime()?.stems[id].select(mode); getRuntime()?.scratch[id].select(mode);
   };
   const seek = useCallback((norm: number) => transport({ type: 'SEEK', norm }), [transport]);
   const togglePlay = useCallback(async () => {
@@ -204,7 +205,7 @@ export function useDeck(id: string, audioReady: boolean) {
   const toggleKeyLock = () => dispatch({ type: 'KEY_LOCK' });
   const syncTo = (norm: number, tempo: number) => transport({ type: 'SYNC', norm, tempo });
 
-  return { state, position, level, stemStatus, stemsReady, stemMix, retryStems, selectStems, load, togglePlay, seek, setVolume, setEq, setFilter,
+  return { state, position, level, stemStatus, stemsReady, stemMode, retryStems, selectStems, load, togglePlay, seek, setVolume, setEq, setFilter,
     setTempo, setCue, jumpCue, cueDown, cueUp, hotCue, scratchDown, scratchMove, scratchUp, loopAction, grid, analysisStatus, manualGrid, tapTempo,
     alignBeat, syncTo, readPosition, follow, toggleKeyLock };
 }

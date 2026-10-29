@@ -8,6 +8,7 @@ import Waveform from './Waveform';
 import { makeDemoTrack } from '../demo';
 import JogWheel from './JogWheel';
 import TempoControl from './TempoControl';
+import { STEM_MODES } from '../stemModes';
 import { validLoop } from '../transport';
 
 interface Props {
@@ -134,12 +135,9 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
 </div><JogWheel deck={deck} /></div>
       <div className="stem-controls" role="group" aria-label={`${label} stem controls`}>
         <span className="control-caption">STEMS</span>
-        <button className={`btn ghost ${deck.stemMix.vocals ? 'active' : ''}`} disabled={!deck.stemsReady}
-          aria-pressed={deck.stemMix.vocals} onClick={() => deck.selectStems(!deck.stemMix.vocals, deck.stemMix.instrumental)}>VOCALS</button>
-        <button className={`btn ghost ${deck.stemMix.instrumental ? 'active' : ''}`} disabled={!deck.stemsReady}
-          aria-pressed={deck.stemMix.instrumental} onClick={() => deck.selectStems(deck.stemMix.vocals, !deck.stemMix.instrumental)}>INSTRUMENTAL</button>
-        <button className="btn ghost" disabled={!deck.stemsReady} onClick={() => deck.selectStems(true, false)}>ACAPELLA</button>
-        <button className="btn ghost" disabled={!deck.stemsReady} onClick={() => deck.selectStems(true, true)}>FULL MIX</button>
+        {STEM_MODES.map(mode => <button key={mode.id}
+          className={`btn ghost ${deck.stemMode === mode.id ? 'active' : ''}`} disabled={!deck.stemsReady}
+          aria-pressed={deck.stemMode === mode.id} onClick={() => deck.selectStems(mode.id)}>{mode.label}</button>)}
         <small role="status">{deck.stemStatus}</small>
         {!deck.stemsReady && track && <button className="btn ghost" onClick={deck.retryStems}>RETRY STEMS</button>}
       </div>
