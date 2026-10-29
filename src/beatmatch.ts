@@ -23,3 +23,22 @@ export function driftCorrection(baseRate: number, errorSeconds: number, playing:
   const nudge = Math.abs(errorSeconds) < .004 ? 0 : Math.max(-.015, Math.min(.015, errorSeconds * 2));
   return { seek: false, rate: Math.max(.5, Math.min(1.5, baseRate * (1 + nudge))) };
 }
+
+/** Match both decks at the same future audio-clock instant, not at click time. */
+export function synchronizePlayers(
+  target: { bpm: number; offset: number; duration: number; tempo: number; playing: boolean },
+  reference: { bpm: number; offset: number; duration: number; tempo: number; playing: boolean },
+  targetPlayer: { position(time: number): number; schedule(change: { input?: number; rate: number }, when: number, preservePitch: boolean): void },
+  referencePlayer: { position(time: number): number },
+  when: number,
+  preservePitch: boolean,
+) {
+  const settings = syncSettings(
+    { ...target, position: targetPlayer.position(when) / target.duration },
+    { ...reference, position: referencePlayer.position(when) / reference.duration },
+  );
+  if (!settings) return null;
+  targetPlayer.schedule({ rate: settings.tempo,
+    ...(target.playing && reference.playing ? { input: settings.norm * target.duration } : {}) }, when, preservePitch);
+  return settings;
+}

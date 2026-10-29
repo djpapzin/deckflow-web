@@ -9,7 +9,7 @@ import { isTransportSpace } from './keyboard';
 import DeckControls from './components/DeckControls';
 import Mixer from './components/Mixer';
 import TrackBrowser, { fileId, type SessionTrack } from './components/TrackBrowser';
-import { syncSettings, driftCorrection } from './beatmatch';
+import { syncSettings, driftCorrection, synchronizePlayers } from './beatmatch';
 
 // P3 — two decks + a crossfader + master volume: the actual mixer.
 //
@@ -67,16 +67,13 @@ export default function App() {
     setSyncMessage(`Deck ${follower} is locked to Deck ${follower === 'A' ? 'B' : 'A'}. Tempo follows the leader. Play and pause each deck yourself; Sync never starts a track. Press Beat Lock again to unlock.`);
   };
 
+  const pendingSync = useRef<string | null>(null);
   const sync = (id: string) => {
     const target = id === 'A' ? deckA : deckB;
     const reference = id === 'A' ? deckB : deckA;
     if (!target.grid || !reference.grid || !target.state.track || !reference.state.track) return;
-    const settings = syncSettings(
-      { ...target.grid, duration: target.state.track.duration, position: target.readPosition(), tempo: target.state.tempo },
-      { ...reference.grid, duration: reference.state.track.duration, position: reference.readPosition(), tempo: reference.state.tempo });
-    if (!settings) { setSyncMessage('Cannot match within ±50%. Check track BPM or use ×2 / ÷2.'); return; }
-    target.syncTo(target.state.playing && reference.state.playing ? settings.norm : target.readPosition(), settings.tempo);
-    setSyncMessage(`Deck ${id} matched to Deck ${reference.state.id}. Playback stays independent. Use Beat Lock for continuous following.`);
+    pendingSync.current = id;
+    updatePlayback();
   };
 
   // Both sources use one AudioContext clock and the same scheduled change time.
@@ -106,6 +103,20 @@ export default function App() {
       rt.players[deck.state.id].apply(effective, when, activeLock?.follower ?? 'free');
       if (activeLock?.follower === deck.state.id && rate !== null) deck.follow(rate);
       if (rt.players[deck.state.id].error) setError(rt.players[deck.state.id].error);
+    }
+    if (pendingSync.current) {
+      const id = pendingSync.current; pendingSync.current = null;
+      const target = id === 'A' ? a : b, reference = id === 'A' ? b : a;
+      if (target.grid && reference.grid && target.state.track && reference.state.track) {
+        const settings = synchronizePlayers(
+          { ...target.grid, duration: target.state.track.duration, tempo: target.state.tempo, playing: target.state.playing },
+          { ...reference.grid, duration: reference.state.track.duration, tempo: reference.state.tempo, playing: reference.state.playing },
+          rt.players[id], rt.players[reference.state.id], when, target.state.keyLock);
+        if (settings) {
+          target.setTempo(settings.tempo);
+          setSyncMessage(`Deck ${id} matched to Deck ${reference.state.id}: ${(target.grid.bpm * settings.tempo).toFixed(1)} BPM. Playback stays independent.`);
+        } else setSyncMessage('Cannot match within ±50%. Check track BPM or use ×2 / ÷2.');
+      }
     }
     if (!activeLock || rate === null || !follower.grid || !leader.grid || !follower.state.track || !leader.state.track) return;
     const targetPlayer = rt.players[follower.state.id], referencePlayer = rt.players[leader.state.id];

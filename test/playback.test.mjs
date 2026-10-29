@@ -8,7 +8,7 @@ async function load(name) {
  return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 }
 const {DeckPlayer,positionAt}=await load('playback');
-const {syncSettings,driftCorrection}=await load('beatmatch');
+const {syncSettings,driftCorrection,synchronizePlayers}=await load('beatmatch');
 const state=(id,tempo=1)=>({id,track:{pathL:id,duration:600},playing:true,baseNorm:0,seekGen:1,tempo,
  keyLock:true,loopEnabled:false,loopIn:null,loopOut:null});
 function setup(){
@@ -83,4 +83,31 @@ test('unlock restores nominal tempo instead of leaving a drift nudge applied',()
  x.time(1);x.player.schedule({rate:1.015},1.15,true);
  x.time(2);x.player.apply(s,2.15,'free');
  assert.equal(x.player.segment(2.15).rate,1);
+});
+
+test('one-shot Sync matches 124 to 125 at the scheduled instant without drifting for ten minutes',()=>{
+ const a=setup(),b=setup();
+ const duration=1200;
+ a.player.schedule({input:10,active:true,rate:1},0);
+ b.player.schedule({input:10*125/124,active:true,rate:1},0);
+ a.time(.2);b.time(.2);
+ const when=.2+.23;
+ const result=synchronizePlayers(
+  {bpm:124,offset:0,duration,tempo:1,playing:true},
+  {bpm:125,offset:0,duration,tempo:1,playing:true},b.player,a.player,when,true);
+ assert.ok(result);assert.equal(result.tempo,125/124);
+ assert.equal(b.player.segment(.42).rate,1);
+ for(const seconds of [when,1,10,60,300,600]) {
+  const beatsA=a.player.position(seconds)*125/60,beatsB=b.player.position(seconds)*124/60;
+  assert.ok(Math.abs((beatsB-beatsA)-Math.round(beatsB-beatsA))<1e-9);
+ }
+ assert.equal(b.commands.at(-1).active,true);
+});
+test('Sync on a paused deck changes BPM without moving or starting it',()=>{
+ const a=setup(),b=setup();
+ a.player.schedule({input:8,active:true,rate:1},0);b.player.schedule({input:3,active:false,rate:1},0);
+ synchronizePlayers({bpm:124,offset:0,duration:600,tempo:1,playing:false},
+ {bpm:125,offset:0,duration:600,tempo:1,playing:true},b.player,a.player,.4,true);
+ assert.equal(b.player.position(10),3);assert.equal(b.player.segment(10).active,false);
+ assert.equal(b.player.segment(10).rate,125/124);
 });
