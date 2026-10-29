@@ -1505,3 +1505,29 @@ h1 {
 .browser-status {
   font-size:9px
 }
+@media (max-width: 950px) {
+  .performance-console { min-width: 600px; grid-template-columns: minmax(0, 1fr) 144px minmax(0, 1fr); }
+  .deck-workbench { grid-template-columns: 28px minmax(58px, 1fr) clamp(90px, 12vw, 135px); gap: 4px; }
+  .deck-B .deck-workbench { grid-template-columns: clamp(90px, 12vw, 135px) minmax(58px, 1fr) 28px; }
+  .jog-wheel { width: 100%; }
+  .jog-label strong { font-size: clamp(13px, 1.8vw, 18px); letter-spacing: -.8px; }
+  .jog-label b { font-size: 10px; }
+  .jog-label small, .jog-label span { font-size: 5px; margin: 2px 0; }
+  .deck-utility { padding: 4px; }
+  .tempo-control label { font-size: 5px; }
+  .tempo-control output { font-size: 9px; }
+  .tempo-control .btn { font-size: 5px; padding: 3px 2px; }
+  .channel-strips { gap: 12px; }
+  .mixer { gap: 5px; }
+  .deck-label { font-size: 6px; gap: 4px; letter-spacing: 0; }
+  .deck-head .btn { font-size: 6px; padding: 4px; }
+  .cue-tools .btn, .loop-controls .btn, .beat-controls .btn { font-size: 6px; padding: 4px; }
+  .cue-tools span, .marker-readout { font-size: 6px; }
+  .beat-tools summary, .control-caption, .bpm-input { font-size: 6px; }
+  .bpm-input input { width: 40px; font-size: 9px; }
+  .transport .btn { font-size: 7px; padding: 4px; }
+  .track-name { font-size: 8px; padding-right: 42px; }
+  .track-display .remaining strong { font-size: 8px; }
+  .track-display .analysis-status { font-size: 5px; letter-spacing: 0; }
+  .console-help:after { content: 'Expand the browser for larger controls · landscape recommended on phones'; }
+}
