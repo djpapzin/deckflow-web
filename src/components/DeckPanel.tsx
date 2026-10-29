@@ -5,7 +5,7 @@
 import { useRef, useState } from 'react';
 import type { UseDeck } from '../useDeck';
 import Waveform from './Waveform';
-import { makeDemoTrack } from '../demo';
+import { loadDemoSong } from '../demoSong';
 import JogWheel from './JogWheel';
 import TempoControl from './TempoControl';
 import { STEM_MODES } from '../stemModes';
@@ -51,6 +51,13 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
     }
   };
 
+  const loadDemo = async () => {
+    setLoading(true); setError(null);
+    try { await ensureAudio(); await loadFile(await loadDemoSong(), true); }
+    catch (err) { setError(String(err)); }
+    finally { setLoading(false); }
+  };
+
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) void loadFile(file);
@@ -62,7 +69,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
     <section className={`deck deck-${deck.state.id} ${selected ? 'selected-deck' : ''}`} aria-label={label} onPointerDownCapture={onSelect} onFocusCapture={onSelect}>
       <header className="deck-head">
         <span className="deck-label"><b>{deck.state.id}</b> {label.toUpperCase()} {selected ? '· SPACE ▶/Ⅱ' : ''}</span>
-        <button className="btn ghost" onClick={() => void loadFile(makeDemoTrack(deck.state.id), true)} disabled={loading}>
+        <button className="btn ghost" onClick={() => void loadDemo()} disabled={loading}>
           DEMO
         </button>
         <button className="btn ghost" onClick={() => fileInputRef.current?.click()} disabled={loading}>

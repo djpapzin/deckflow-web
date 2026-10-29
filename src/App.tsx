@@ -194,7 +194,8 @@ export default function App() {
         <span className="subtitle">DIGITAL MIXING CONSOLE</span>
         <span className="build-badge">CLASSIC MIX · 2 DECKS</span>
       </header>
-      <p className="intro">Load your tracks, or try the demos. Music stays on your device.</p>
+      <p className="intro">Click DEMO for a vocal sample, or load your own tracks. Music stays on your device.
+        {' '}<a href={`${import.meta.env.BASE_URL}demo-song-license.txt`} target="_blank" rel="noreferrer">Demo: Karissa Hobbs · CC BY 3.0</a></p>
       <p className="sync-status" role="status">{syncMessage}</p>
 
       <section className="rhythm-display" aria-label="Moving deck waveforms">

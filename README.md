@@ -92,3 +92,7 @@ to reclaim space. One job runs at a time, with up to eight queued/active jobs an
 job timeout. Separation errors leave normal playback usable; RETRY STEMS retries preparation.
 Replacing a deck discards stale UI/audio attachment results but a queued separation may finish
 and remain cached. The companion must remain running. No music is sent to an external server.
+
+Clicking DEMO on either deck loads the 45-second Let's Go Fishin’ vocal demo, paused; nothing loads automatically at startup.
+The demo is by Karissa Hobbs (CC BY 3.0); attribution is available beside the console
+and in public/demo-song-license.txt. Playback starts only when Play is pressed.

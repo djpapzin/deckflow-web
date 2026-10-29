@@ -34,7 +34,9 @@ export async function initAudio(): Promise<AudioRuntime> {
   }
 
   if (!initializing) initializing = bootAudio().finally(() => { initializing = null; });
-  return initializing;
+  const rt = await initializing;
+  if (rt.ctx.state === 'suspended') await rt.ctx.resume();
+  return rt;
 }
 
 async function bootAudio(): Promise<AudioRuntime> {
@@ -84,8 +86,6 @@ async function bootAudio(): Promise<AudioRuntime> {
       players[id] = new DeckPlayer(stretch, () => ctx.currentTime);
       stems[id] = new StemPlayback(ctx, normalGain, originalGain, players[id], () => latency + .03);
     }
-
-    if (ctx.state === 'suspended') await ctx.resume();
 
     runtime = { ctx, core, players, scratch, stems, lookAhead: latency + .03 };
     return runtime;
