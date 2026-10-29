@@ -4,7 +4,6 @@ import SignalsmithStretch from './vendor/SignalsmithStretch.mjs';
 import stretchWorkletUrl from './vendor/SignalsmithStretch.mjs?url';
 import { DeckPlayer } from './playback';
 import { ScratchPlayer } from './scratch';
-import scratchWorkletUrl from '../public/scratch-worklet.js?url';
 
 // Serve the original worklet module directly. Serializing the bundled factory
 // with Function.toString loses its closure bindings after production minification.
@@ -64,7 +63,7 @@ async function bootAudio(): Promise<AudioRuntime> {
     node.connect(ctx.destination);
     const players: Record<string, DeckPlayer> = {};
     const scratch: Record<string, ScratchPlayer> = {};
-    await ctx.audioWorklet.addModule(scratchWorkletUrl);
+    await ctx.audioWorklet.addModule(`${import.meta.env.BASE_URL}scratch-worklet.js`);
     let latency = .12;
     for (const [i, id] of ['A', 'B'].entries()) {
       const stretch = await SignalsmithStretch(ctx, {
