@@ -73,3 +73,11 @@ test('five stem modes have distinct labels and dispatch their selected mode',()=
  assert.deepEqual(new Set(selected),new Set(['full','acapella','instrumental','vocal-reprise','instrumental-reprise']));
  assert.equal(all.some(b=>b.children==='VOCALS'),false);
 });
+
+test('Retry Stems appears only after failure, never during preparation or when ready',()=>{
+ const deck={state:{id:'A',track:{duration:45},hotCues:Array(5).fill(null),cueNorm:0},stemMode:'full',stemStatus:'',position:0};
+ for(const [stemsReady,stemsFailed,expected] of [[false,false,false],[true,false,false],[false,true,true]]) {
+  const all=buttons(panel({...deck,stemsReady,stemsFailed}));
+  assert.equal(all.some(b=>b.children==='RETRY STEMS'),expected);
+ }
+});

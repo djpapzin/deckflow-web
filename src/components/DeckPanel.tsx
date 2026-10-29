@@ -145,8 +145,11 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         {STEM_MODES.map(mode => <button key={mode.id}
           className={`btn ghost ${deck.stemMode === mode.id ? 'active' : ''}`} disabled={!deck.stemsReady}
           aria-pressed={deck.stemMode === mode.id} onClick={() => deck.selectStems(mode.id)}>{mode.label}</button>)}
+        {deck.stemsReady && deck.preparedQuality === 'fast' && <button className="btn ghost"
+          title="Prepare this track with two passes. Full Mix plays while preparing."
+          onClick={deck.upgradeStems}>BETTER QUALITY</button>}
         <small role="status">{deck.stemStatus}</small>
-        {!deck.stemsReady && track && <button className="btn ghost" onClick={deck.retryStems}>RETRY STEMS</button>}
+        {deck.stemsFailed && track && <button className="btn ghost" onClick={deck.retryStems}>RETRY STEMS</button>}
       </div>
       <div className="hot-cues" role="group" aria-label={`${label} hot cues`}>
         <span>HOT CUES</span>{deck.state.hotCues.map((cue, index) => <button key={index}
