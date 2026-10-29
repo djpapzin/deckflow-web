@@ -114,8 +114,8 @@ Pushing `dev` does not deploy production.
 ### Connect the hosted dev preview to your Mac
 
 Start the local stem companion, then click **CONNECT MAC STEMS** on the dev site.
-Keep the small Mac connection window or embedded panel open while using stems.
-The companion serves this panel from loopback only. It accepts messages only from
-the trusted dev origin and requesting window, and relays only fixed stem API paths.
-Audio and model processing remain on your Mac. No public tunnel is required.
-The localhost app continues to access the companion directly.
+This opens `http://127.0.0.1:8787/dev/`, the Mac-connected dev view. It serves the
+latest public dev build through the loopback companion, so the browser can use
+same-origin stem requests. Only fixed frontend assets are fetched from the dev
+site; songs and stem audio remain local. The hosted dev address and production
+site retain their separate deployments. Start this view before loading music.

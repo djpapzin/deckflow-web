@@ -5,7 +5,7 @@ import ts from 'typescript';
 const code=ts.transpileModule(readFileSync(new URL('../src/stemConnection.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText.replace(/^import .*;$/gm,'').replace(/export /g,'');
 function connection({port='',state='prompt',ready=true}={}) {
  const calls=[];
- const api=new Function('bridgeReady','connectStemBridge','bridgeFetch','location','navigator','fetch',code+';return {localStemFetch,connectMacStems,requireStemConnection};')( ()=>false,async()=>{},()=>{}, {port},{permissions:{query:async()=>{if(state==='unsupported')throw TypeError('unknown');return {state};}}},async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>({ready})};});
+ const api=new Function('location','navigator','fetch',code+';return {localStemFetch,connectMacStems,requireStemConnection};')({port},{permissions:{query:async()=>{if(state==='unsupported')throw TypeError('unknown');return {state};}}},async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>({ready})};});
  return {api,calls};
 }
 test('hosted requests require an explicit connection; fetch declares loopback and preserves cancellation',async()=>{
