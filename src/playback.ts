@@ -14,6 +14,13 @@ export function positionAt(s: Segment, time: number): number {
 /** Audio-clock timeline shared by UI and sync; no wall-clock polling accumulator. */
 export class DeckPlayer {
   private timeline: Segment[] = [{ output: 0, input: 0, rate: 1, active: false, loopStart: 0, loopEnd: 0 }];
+  private companions: StretchNode[] = [];
+  private preservePitch = true;
+  setCompanions(nodes: StretchNode[], when = this.now()) {
+    this.companions = nodes;
+    const current = this.segment(when);
+    for (const node of nodes) void node.schedule({ ...current, input: this.position(when), output: when, semitones: this.preservePitch ? 0 : 12 * Math.log2(current.rate) }).catch(error => { this.error = String(error); });
+  }
   private signature = '';
   private seekGen = -1;
   duration = 0;
@@ -24,7 +31,7 @@ export class DeckPlayer {
   }
   position(time = this.now()): number { return positionAt(this.segment(time), time); }
   private send(change: StretchSchedule) {
-    void this.node.schedule(change).catch(error => { this.error = String(error); });
+    for (const node of [this.node, ...this.companions]) void node.schedule(change).catch(error => { this.error = String(error); });
   }
   async load(left: Float32Array, right: Float32Array, duration: number) {
     await this.node.schedule({ active: false, input: 0 });
@@ -35,6 +42,7 @@ export class DeckPlayer {
     this.signature = ''; this.seekGen = -1;
   }
   schedule(change: Partial<Segment>, when: number, preservePitch = true) {
+    this.preservePitch = preservePitch;
     const current = this.segment(when);
     const next: Segment = { ...current, input: this.position(when), ...change, output: when };
     // Keep the active segment plus future changes; replace changes after this one.

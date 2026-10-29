@@ -111,3 +111,15 @@ test('Sync on a paused deck changes BPM without moving or starting it',()=>{
  assert.equal(b.player.position(10),3);assert.equal(b.player.segment(10).active,false);
  assert.equal(b.player.segment(10).rate,125/124);
 });
+test('late stems join at current song position and mirror future seeks, tempo and pause',()=>{
+ const {player,time}=setup();player.schedule({input:5,rate:1.2,active:true},0);time(10);
+ const stemCommands=[[],[]];const nodes=stemCommands.map(commands=>({schedule:async change=>{commands.push(change);}}));
+ player.setCompanions(nodes,10.2);
+ assert.equal(stemCommands[0][0].input,player.position(10.2));
+ player.schedule({input:20,rate:125/124},11);player.schedule({active:false},12);
+ assert.deepEqual(stemCommands[0],stemCommands[1]);
+ assert.equal(stemCommands[0][1].input,20);assert.equal(stemCommands[0][1].rate,125/124);
+ assert.equal(stemCommands[0][2].active,false);
+ player.setCompanions([]);const count=stemCommands[0].length;player.schedule({active:true},13);
+ assert.equal(stemCommands[0].length,count);
+});

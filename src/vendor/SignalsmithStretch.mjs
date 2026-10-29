@@ -50,6 +50,7 @@ function registerWorkletProcessor(Module, audioNodeKey) {
 			}];
 			
 			let remoteMethods = {
+                dispose: () => { this.disposed = true; this.audioBuffers = []; },
 				configure: config => {
 					Object.assign(this.config, config);
 					this.configure();
@@ -233,6 +234,7 @@ function registerWorkletProcessor(Module, audioNodeKey) {
 		}
 
 		process(inputList, outputList, parameters) {
+            if (this.disposed) return false;
 			if (!this.wasmReady) {
 				outputList.forEach(output => {
 					output.forEach(channel => {

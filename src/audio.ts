@@ -4,6 +4,7 @@ import SignalsmithStretch from './vendor/SignalsmithStretch.mjs';
 import stretchWorkletUrl from './vendor/SignalsmithStretch.mjs?url';
 import { DeckPlayer } from './playback';
 import { ScratchPlayer } from './scratch';
+import { StemPlayback } from './stemPlayback';
 
 // Serve the original worklet module directly. Serializing the bundled factory
 // with Function.toString loses its closure bindings after production minification.
@@ -14,6 +15,7 @@ export interface AudioRuntime {
   core: WebRenderer;
   players: Record<string, DeckPlayer>;
   scratch: Record<string, ScratchPlayer>;
+  stems: Record<string, StemPlayback>;
   lookAhead: number;
 }
 
@@ -63,6 +65,7 @@ async function bootAudio(): Promise<AudioRuntime> {
     node.connect(ctx.destination);
     const players: Record<string, DeckPlayer> = {};
     const scratch: Record<string, ScratchPlayer> = {};
+    const stems: Record<string, StemPlayback> = {};
     await ctx.audioWorklet.addModule(`${import.meta.env.BASE_URL}scratch-worklet.js`);
     let latency = .12;
     for (const [i, id] of ['A', 'B'].entries()) {
@@ -71,18 +74,20 @@ async function bootAudio(): Promise<AudioRuntime> {
       });
       const split = ctx.createChannelSplitter(2);
       const normalGain = ctx.createGain();
-      stretch.connect(normalGain); normalGain.connect(split);
+      const originalGain = ctx.createGain();
+      stretch.connect(originalGain); originalGain.connect(normalGain); normalGain.connect(split);
       scratch[id] = new ScratchPlayer(ctx, normalGain, () => latency + .03);
       scratch[id].node.connect(split);
       split.connect(node, 0, i * 2);
       split.connect(node, 1, i * 2 + 1);
       latency = Math.max(latency, await stretch.latency());
       players[id] = new DeckPlayer(stretch, () => ctx.currentTime);
+      stems[id] = new StemPlayback(ctx, normalGain, originalGain, players[id], () => latency + .03);
     }
 
     if (ctx.state === 'suspended') await ctx.resume();
 
-    runtime = { ctx, core, players, scratch, lookAhead: latency + .03 };
+    runtime = { ctx, core, players, scratch, stems, lookAhead: latency + .03 };
     return runtime;
   } catch (error) {
     await ctx.close();

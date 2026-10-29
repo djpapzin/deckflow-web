@@ -9,6 +9,11 @@ export class ScratchPlayer {
     const channels = [left.slice(), right.slice()];
     this.node.port.postMessage({ type: 'load', channels }, channels.map(c => c.buffer));
   }
+  loadStems(vocals: AudioBuffer, instrumental: AudioBuffer) {
+    const stems = [vocals, instrumental].map(buffer => [buffer.getChannelData(0).slice(), buffer.getChannelData(Math.min(1, buffer.numberOfChannels - 1)).slice()]);
+    this.node.port.postMessage({ type:'stems', stems }, stems.flat().map(c => c.buffer));
+  }
+  select(vocals: boolean, instrumental: boolean) { this.node.port.postMessage({ type:'mix', vocals, instrumental }); }
   start(position: number) {
     const now = this.ctx.currentTime;
     this.normalGain.gain.cancelScheduledValues(now); this.normalGain.gain.setValueAtTime(0, now);

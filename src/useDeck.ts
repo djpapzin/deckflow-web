@@ -5,6 +5,7 @@ import { decodeTrack, publishTrack } from './track';
 import { initialDeckState, METER_EVENT_SUFFIX } from './deck';
 import { reducer, clamp01, type EqBand, type Action } from './transport';
 import type { BeatGrid } from './bpmAnalysis';
+import { prepareStems } from './stemClient';
 
 export function useDeck(id: string, audioReady: boolean) {
   const [state, dispatch] = useReducer(reducer, id, initialDeckState);
@@ -13,6 +14,23 @@ export function useDeck(id: string, audioReady: boolean) {
   const stateRef = useRef(state);
   stateRef.current = state;
   const positionRef = useRef(position);
+  const [stemStatus, setStemStatus] = useState('Load a track to prepare stems automatically');
+  const [stemsReady, setStemsReady] = useState(false);
+  const [stemMix, setStemMix] = useState({ vocals:true, instrumental:true });
+  const stemAbort = useRef<AbortController | null>(null);
+  const lastFile = useRef<File | null>(null);
+  const prepare = useCallback(async (file: File, gen: number) => {
+    const rt = getRuntime(); if (!rt) return;
+    stemAbort.current?.abort(); const controller = new AbortController(); stemAbort.current = controller;
+    const token = rt.stems[id].token();
+    setStemStatus('Connecting to local separator…');
+    try {
+      await prepareStems(file, rt, id, token, controller.signal, text => { if (loadGen.current === gen) setStemStatus(text); });
+      if (loadGen.current !== gen || controller.signal.aborted) return;
+      setStemsReady(true); setStemStatus('STEMS READY · switch live');
+    } catch (error) { if (!controller.signal.aborted && loadGen.current === gen) setStemStatus(error instanceof Error ? error.message : String(error)); }
+  }, [id]);
+  useEffect(() => () => stemAbort.current?.abort(), []);
   const loadGen = useRef(0);
   const scratchGesture = useRef<{ resume: boolean; position: number } | null>(null);
   const ignoreSnapshotsUntil = useRef(0);
@@ -69,15 +87,21 @@ export function useDeck(id: string, audioReady: boolean) {
     if (!rt) throw new Error('Enable audio before loading a track.');
     if (scratchGesture.current) { scratchGesture.current = null; rt.scratch[id].stop(); }
     const gen = ++loadGen.current;
+    stemAbort.current?.abort();
+    setStemsReady(false); setStemMix({ vocals:true, instrumental:true });
+    setStemStatus('Waiting for track to load…');
     const decoded = await decodeTrack(rt, file);
     if (gen !== loadGen.current) return;
     // Each successful load gets distinct VFS paths, preserving an old playing deck
     // until the new track is fully published and committed to state.
+    rt.stems[id].reset();
     const track = await publishTrack(rt, `${id}:${gen}`, decoded);
     if (gen !== loadGen.current) return;
     showPosition(0);
     ignoreSnapshotsUntil.current = performance.now() + 120;
     dispatch({ type: 'LOAD', track });
+    lastFile.current = file;
+    void prepare(file, gen);
     setGrid(null);
     setAnalysisStatus('analyzing');
     taps.current = [];
@@ -97,8 +121,13 @@ export function useDeck(id: string, audioReady: boolean) {
       };
       worker.postMessage({ samples: decoded.analysisPcm, sampleRate: decoded.analysisSampleRate }, [decoded.analysisPcm.buffer]);
     } catch { setAnalysisStatus('unknown'); }
-  }, [id, showPosition]);
+  }, [id, showPosition, prepare]);
 
+  const retryStems = () => { if (lastFile.current) void prepare(lastFile.current, loadGen.current); };
+  const selectStems = (vocals: boolean, instrumental: boolean) => {
+    if (!stemsReady) return;
+    setStemMix({ vocals, instrumental }); getRuntime()?.stems[id].select(vocals, instrumental); getRuntime()?.scratch[id].select(vocals, instrumental);
+  };
   const seek = useCallback((norm: number) => transport({ type: 'SEEK', norm }), [transport]);
   const togglePlay = useCallback(async () => {
     const rt = getRuntime();
@@ -175,7 +204,7 @@ export function useDeck(id: string, audioReady: boolean) {
   const toggleKeyLock = () => dispatch({ type: 'KEY_LOCK' });
   const syncTo = (norm: number, tempo: number) => transport({ type: 'SYNC', norm, tempo });
 
-  return { state, position, level, load, togglePlay, seek, setVolume, setEq, setFilter,
+  return { state, position, level, stemStatus, stemsReady, stemMix, retryStems, selectStems, load, togglePlay, seek, setVolume, setEq, setFilter,
     setTempo, setCue, jumpCue, cueDown, cueUp, hotCue, scratchDown, scratchMove, scratchUp, loopAction, grid, analysisStatus, manualGrid, tapTempo,
     alignBeat, syncTo, readPosition, follow, toggleKeyLock };
 }

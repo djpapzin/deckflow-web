@@ -1545,3 +1545,6 @@ h1 {
 .jog-wheel { touch-action:none; cursor:grab; }
 .jog-wheel:active { cursor:grabbing; }
 .transport { flex-wrap:wrap; }
+
+.stem-controls { display:flex; gap:5px; align-items:center; flex-wrap:wrap; padding:8px; border-top:1px solid #444; }
+.stem-controls small { flex-basis:100%; color:#a9b1c2; font-size:10px; overflow-wrap:anywhere; }

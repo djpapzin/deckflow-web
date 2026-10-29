@@ -10,3 +10,5 @@ Local schedule fix (covered by the worklet tests): the upstream schedule handler
 looked for `outputTime` instead of the documented `output`, and discarded the
 current segment before a future change became active. It now uses `output` for
 queue insertion and `currentTime` for pruning/reporting the active segment.
+
+Local lifecycle extension: `dispose()` ends retired stem processors and drops their source buffers.

@@ -6,7 +6,7 @@
   "description": "Browser-only teaching variant of DeckFlow — a DJ mixer built on Web Audio + Elementary Audio (WASM)",
   "scripts": {
     "dev": "vite",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test test/*.test.mjs && python3 -m unittest discover -s server -p 'test_*.py'",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

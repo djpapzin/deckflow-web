@@ -52,7 +52,7 @@ function buttons(node) {
   return [...(node.type==='button'?[node.props]:[]),...buttons(node.props?.children)];
 }
 test('actual Cue and numbered pad handlers dispatch holds, releases and shift-clear',()=>{
-  const calls=[];const deck={state:{id:'A',track:{duration:100},hotCues:[null,.1,null,.3,null],cueNorm:0,eqLow:0},position:.2,
+  const calls=[];const deck={stemMix:{vocals:true,instrumental:true},stemsReady:false,stemStatus:"",state:{id:'A',track:{duration:100},hotCues:[null,.1,null,.3,null],cueNorm:0,eqLow:0},position:.2,
     cueDown:()=>calls.push('down'),cueUp:()=>calls.push('up'),hotCue:(i,clear)=>calls.push([i,clear])};
   const all=buttons(panel(deck));const cue=all.find(b=>b.children==='CUE');
   const event={button:0,pointerId:1,currentTarget:{setPointerCapture:()=>{}},preventDefault:()=>{},key:' ',repeat:false};

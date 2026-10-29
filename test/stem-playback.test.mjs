@@ -1,0 +1,21 @@
+import {readFileSync} from 'node:fs';
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import ts from 'typescript';
+const src=ts.transpileModule(readFileSync(new URL('../src/stemPlayback.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2020}}).outputText.replace(/^import .*;$/gm,'').replace('export class','class');
+test('stem switches only change gains; retirement disconnects processors',async()=>{
+ let disposed=0,attachments=0; const values=[];
+ const gain=()=>({gain:{value:0,cancelScheduledValues(){},setValueAtTime(v){this.value=v;},setTargetAtTime(v){this.value=v;values.push(v);}},connect(){},disconnect(){}});
+ const ctx={currentTime:10,createGain:gain};const original=gain(),output=gain();
+ const factory=async()=>({addBuffers:async()=>{},connect(){},disconnect(){},dispose:async()=>{disposed++;}});
+ const Class=new Function('SignalsmithStretch',src+'\nreturn StemPlayback;')(factory);
+ const player={setCompanions(nodes){attachments++;assert.ok(nodes.length===0||nodes.length===2);}};
+ const stems=new Class(ctx,output,original,player,()=>.2);stems.reset();
+ const buffer={numberOfChannels:2,getChannelData:()=>new Float32Array(100)};
+ await stems.load(buffer,buffer,stems.token());const prior=attachments;
+ stems.select(true,false);assert.deepEqual(values.slice(-3),[0,1,0]);
+ stems.select(false,true);assert.deepEqual(values.slice(-3),[0,0,1]);
+ stems.select(true,true);assert.deepEqual(values.slice(-3),[1,0,0]);
+ stems.select(false,false);assert.deepEqual(values.slice(-3),[0,0,0]);assert.equal(attachments,prior);
+ stems.reset();assert.equal(disposed,2);assert.equal(stems.ready,false);
+});

@@ -3,6 +3,7 @@ export interface StretchSchedule {
   semitones?: number; loopStart?: number; loopEnd?: number;
 }
 export interface StretchNode extends AudioWorkletNode {
+  dispose(): Promise<void>;
   schedule(change: StretchSchedule): Promise<unknown>;
   addBuffers(channels: Float32Array[], transfer?: ArrayBuffer[]): Promise<number>;
   dropBuffers(): Promise<unknown>;
