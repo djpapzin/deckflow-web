@@ -65,6 +65,8 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
     event.preventDefault();
     setLoading(true); setError(null); setImportStatus('Importing audio…');
     try {
+      // Safari needs audio unlocked while the submit gesture is still active.
+      await ensureAudio();
       const response = await localStemFetch('/api/import/youtube', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: youtubeUrl }), signal: AbortSignal.timeout(620000),
