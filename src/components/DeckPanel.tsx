@@ -128,7 +128,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         </div>
         <span className="analysis-status">{syncLocked ? `SYNC LOCKED · FOLLOWING ${leader}` : deck.analysisStatus === 'analyzing' ? 'ANALYZING BPM…' :
           deck.analysisStatus === 'unknown' ? 'NO STEADY BEAT · SET BPM BELOW' :
-          deck.analysisStatus === 'manual' ? 'MANUAL BEAT GRID' : deck.grid ? 'AUTO BPM · BEAT GRID READY' : 'LOCAL AUDIO · NO UPLOADS'}</span>
+          deck.analysisStatus === 'manual' ? 'MANUAL BEAT GRID' : deck.grid ? 'AUTO BPM · BEAT GRID READY' : CLOUD_STEMS ? 'CLOUD AUDIO PROCESSING' : 'LOCAL AUDIO · NO UPLOADS'}</span>
       </div>
       <div className="waveform-wrap">
         <Waveform peaks={track?.peaks ?? null} position={deck.position} onSeek={deck.seek}

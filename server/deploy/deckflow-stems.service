@@ -8,7 +8,7 @@ Group=deckflow
 WorkingDirectory=/srv/deckflow/app
 Environment=DECKFLOW_CLOUD=1
 Environment=DECKFLOW_PORT=8790
-Environment=DECKFLOW_HOSTS=127.0.0.1:8790,localhost:8790,stems.djpapzin.com
+Environment=DECKFLOW_HOSTS=127.0.0.1:8790,localhost:8790,api-deckflow.djpapzin.com
 Environment=DECKFLOW_DATA=/srv/deckflow/data
 Environment=DECKFLOW_MODELS=/srv/deckflow/models
 Environment=DECKFLOW_PYTHON=/srv/deckflow/venv/bin/python

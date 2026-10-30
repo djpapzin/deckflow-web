@@ -33,8 +33,8 @@ test('same-origin Mac view omits Safari-incompatible address-space hint and pres
 });
 
 test('configured HTTPS cloud requests need no Mac permission or loopback hint',async()=>{
- const {api,calls}=connection({cloud:'https://stems.djpapzin.com'});
+ const {api,calls}=connection({cloud:'https://api-deckflow.djpapzin.com'});
  await api.requireStemConnection();await api.localStemFetch('/api/health');
- assert.equal(calls[0].url,'https://stems.djpapzin.com/api/health');
+ assert.equal(calls[0].url,'https://api-deckflow.djpapzin.com/api/health');
  assert.equal('targetAddressSpace' in calls[0].options,false);
 });

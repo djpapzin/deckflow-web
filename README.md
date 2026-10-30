@@ -164,7 +164,7 @@ streams and YouTube bot checks can prevent an import.
 
 ### Oracle tester backend
 
-Hosted builds use `VITE_STEM_API_URL=https://stems.djpapzin.com`; Mac-connected
+Hosted builds use `VITE_STEM_API_URL=https://api-deckflow.djpapzin.com`; Mac-connected
 views on port 8787 continue to use their local companion. Cloud uploads are
 limited to 30 MB and ten minutes, with one CPU separation worker and two queued
 or processing jobs. Temporary stem jobs expire after six hours (cleanup every

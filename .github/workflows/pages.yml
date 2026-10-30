@@ -22,7 +22,7 @@ jobs:
       - run: npm test
       - run: npm run build
         env:
-          VITE_STEM_API_URL: https://stems.djpapzin.com
+          VITE_STEM_API_URL: https://api-deckflow.djpapzin.com
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:
