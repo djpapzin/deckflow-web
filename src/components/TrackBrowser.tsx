@@ -1,3 +1,4 @@
+import { CLOUD_STEMS } from '../stemConnection';
 import { useRef, useState } from 'react';
 
 export interface SessionTrack { id: string; file: File; demo: boolean }
@@ -13,7 +14,7 @@ export default function TrackBrowser({ tracks, addFiles, load, info }: Props) {
   const [query, setQuery] = useState('');
   const [demosOnly, setDemosOnly] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [message, setMessage] = useState('Files stay on your device. This session clears when you reload.');
+  const [message, setMessage] = useState(CLOUD_STEMS ? 'Audio uploads to Oracle for stems. This session clears when you reload.' : 'Files stay on your device. This session clears when you reload.');
   const visible = tracks.filter(t => (!demosOnly || t.demo) && t.file.name.toLowerCase().includes(query.toLowerCase()));
   const loadInto = async (track: SessionTrack, deck: 'A' | 'B') => {
     setBusy(`${track.id}:${deck}`);
@@ -36,7 +37,7 @@ export default function TrackBrowser({ tracks, addFiles, load, info }: Props) {
     <div className="browser-body"><aside className="browser-sidebar">
       <button className={!demosOnly ? 'selected' : ''} onClick={() => setDemosOnly(false)}>▤ All tracks <b>{tracks.length}</b></button>
       <button className={demosOnly ? 'selected' : ''} onClick={() => setDemosOnly(true)}>♫ Demo tracks <b>{tracks.filter(t => t.demo).length}</b></button>
-      <p>LOCAL SESSION<br />No uploads<br />No account needed</p>
+      <p>LOCAL SESSION<br />{CLOUD_STEMS ? 'Cloud audio processing' : 'No uploads'}<br />No account needed</p>
     </aside><div className="track-table-wrap"><table className="track-table"><thead><tr><th>TRACK TITLE</th><th>BPM</th><th>LENGTH</th><th>DECK</th><th>LOAD</th></tr></thead>
       <tbody>{visible.map(track => {
         const meta = info[track.id];

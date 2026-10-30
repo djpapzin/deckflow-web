@@ -1,4 +1,5 @@
 """Persistent CPU Demucs worker; model stays resident between queued songs."""
+import os
 import io
 import json
 import random
@@ -9,12 +10,18 @@ import time
 from contextlib import redirect_stdout
 import soundfile as sf
 import torch
-import audio_separator
-# Published model checkpoints reference the bundled top-level demucs package.
-sys.path.insert(0, str(Path(audio_separator.__file__).parent/'separator/uvr_lib_v5'))
-from audio_separator.separator.uvr_lib_v5.demucs.apply import apply_model
-from audio_separator.separator.uvr_lib_v5.demucs.pretrained import get_model
-from audio_separator.separator.uvr_lib_v5.demucs.repo import ModelLoadingError
+try:
+    import audio_separator
+except ImportError:
+    # Lean CPU-only Oracle installation uses the official Demucs package.
+    from demucs.apply import apply_model
+    from demucs.pretrained import get_model
+    from demucs.repo import ModelLoadingError
+else:
+    sys.path.insert(0, str(Path(audio_separator.__file__).parent/'separator/uvr_lib_v5'))
+    from audio_separator.separator.uvr_lib_v5.demucs.apply import apply_model
+    from audio_separator.separator.uvr_lib_v5.demucs.pretrained import get_model
+    from audio_separator.separator.uvr_lib_v5.demucs.repo import ModelLoadingError
 
 def load_local_model(models, model):
     models = Path(models)
@@ -30,7 +37,7 @@ def load_local_model(models, model):
 
 class Engine:
     def __init__(self, models, model):
-        torch.set_num_threads(4)
+        torch.set_num_threads(int(os.environ.get('DECKFLOW_THREADS','4')))
         self.model = load_local_model(models, model).cpu().eval()
 
     def separate(self, source, destination, shifts=2):

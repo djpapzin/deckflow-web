@@ -9,7 +9,7 @@ import { loadDemoSong } from '../demoSong';
 import JogWheel from './JogWheel';
 import TempoControl from './TempoControl';
 import { STEM_MODES } from '../stemModes';
-import { localStemFetch } from '../stemConnection';
+import { CLOUD_STEMS, localStemFetch } from '../stemConnection';
 import { validLoop } from '../transport';
 
 interface Props {
@@ -117,7 +117,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         <input type="url" aria-label={`YouTube link for ${label}`} placeholder="Paste YouTube video link"
           required value={youtubeUrl} disabled={loading} onChange={event => setYoutubeUrl(event.target.value)} />
         <button className="btn ghost" disabled={loading || !youtubeUrl.trim()}>IMPORT MP3</button>
-        <small role="status">{importStatus || 'Import audio you own or have permission to use · up to 20 minutes'}</small>
+        <small role="status">{importStatus || (CLOUD_STEMS ? 'YouTube currently blocks Oracle imports · load an audio file for cloud stems' : 'Import audio you own or have permission to use · up to 20 minutes')}</small>
       </form>
       <div className="track-display">
         <div className="track-name" title={track?.name}>{track ? track.name : 'LOAD A TRACK TO BEGIN'}</div>
@@ -128,7 +128,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         </div>
         <span className="analysis-status">{syncLocked ? `SYNC LOCKED · FOLLOWING ${leader}` : deck.analysisStatus === 'analyzing' ? 'ANALYZING BPM…' :
           deck.analysisStatus === 'unknown' ? 'NO STEADY BEAT · SET BPM BELOW' :
-          deck.analysisStatus === 'manual' ? 'MANUAL BEAT GRID' : deck.grid ? 'AUTO BPM · BEAT GRID READY' : 'LOCAL AUDIO · NO UPLOADS'}</span>
+          deck.analysisStatus === 'manual' ? 'MANUAL BEAT GRID' : deck.grid ? 'AUTO BPM · BEAT GRID READY' : CLOUD_STEMS ? 'CLOUD AUDIO PROCESSING' : 'LOCAL AUDIO · NO UPLOADS'}</span>
       </div>
       <div className="waveform-wrap">
         <Waveform peaks={track?.peaks ?? null} position={deck.position} onSeek={deck.seek}

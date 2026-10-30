@@ -29,7 +29,7 @@ def video_url(value):
         raise ValueError('Paste a single YouTube video link, not a playlist or channel.')
     return 'https://www.youtube.com/watch?v=' + video
 
-def import_audio(url, ffmpeg_dir, python=sys.executable):
+def import_audio(url, ffmpeg_dir, python=sys.executable, max_duration=1200):
     url = video_url(url)
     ffmpeg = Path(ffmpeg_dir) / 'ffmpeg'
     if not ffmpeg.exists() and not shutil.which('ffmpeg'):
@@ -38,7 +38,7 @@ def import_audio(url, ffmpeg_dir, python=sys.executable):
     with tempfile.TemporaryDirectory(prefix='deckflow-import-') as directory:
         command = [str(python), '-m', 'yt_dlp', '--ignore-config', '--no-plugin-dirs',
             '--no-playlist', '--no-progress', '--socket-timeout', '20', '--retries', '1',
-            '--max-filesize', '100M', '--match-filter', 'duration <= 1200 & !is_live',
+            '--max-filesize', '100M', '--match-filter', f'duration <= {max_duration} & !is_live',
             '-f', 'bestaudio', '-x', '--audio-format', 'mp3', '--audio-quality', '192K',
             '--write-info-json', '-o', str(Path(directory) / 'track.%(ext)s')]
         node = shutil.which('node') or str(Path.home() / '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node')
@@ -49,6 +49,8 @@ def import_audio(url, ffmpeg_dir, python=sys.executable):
         if result.returncode or not audio.exists():
             if 'No module named yt_dlp' in result.stderr:
                 raise RuntimeError('YouTube import needs yt-dlp installed in the DeckFlow companion Python environment.')
+            if 'Sign in to confirm' in result.stderr:
+                raise RuntimeError('YouTube is refusing imports from this server. Load an audio file instead.')
             raise RuntimeError('YouTube could not provide this audio. Try a public video under 20 minutes; restricted videos and live streams are unsupported.')
         if audio.stat().st_size > MAX_AUDIO_BYTES:
             raise ValueError('Imported audio exceeds 100 MB.')

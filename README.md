@@ -161,3 +161,28 @@ limited to 20 minutes/100 MB with a 10-minute timeout. No account cookies are us
 Temporary downloads are removed after conversion, including failed imports; the
 usual stem cache still applies once the track loads. Restricted videos, live
 streams and YouTube bot checks can prevent an import.
+
+### Oracle tester backend
+
+Hosted builds use `VITE_STEM_API_URL=https://api-deckflow.djpapzin.com`; Mac-connected
+views on port 8787 continue to use their local companion. Cloud uploads are
+limited to 30 MB and ten minutes, with one CPU separation worker and two queued
+or processing jobs. Temporary stem jobs expire after six hours (cleanup every
+five minutes). A 4 GiB cache budget reserves room for pending work and refuses new
+jobs if doing so would reduce free space below 12 GiB. Limits apply only to the
+DeckFlow service's generated data; other VPS files are never cleaned up.
+
+The deployment templates in `server/deploy/` configure a dedicated `deckflow`
+user, CPU quota of 1.5 cores, two Torch threads, 6 GiB memory ceiling and separate
+Cloudflare Tunnel. The API binds to loopback port 8790; HTTPS traffic arrives
+through the tunnel. Existing VPS services and firewall rules are unchanged.
+Each IP is limited to six new processing/import requests per hour, with a global
+24-request hourly cap. This is a small tester service, not a public-scale SLA.
+YouTube currently rejects this Oracle IP with a bot-verification response. Cloud
+YouTube imports are not verified working; the UI warns testers. Import errors leave the
+current deck intact. Files and library entries remain in the browser, but audio
+is sent to Oracle when preparing cloud stems.
+
+Initial Oracle benchmark: 45 seconds of demo audio took about 220 seconds in Fast
+mode on the busy shared A1 CPU. Full songs can take many minutes. Countdown uses
+this approximate five-times-duration baseline for Fast and ten-times for Best.

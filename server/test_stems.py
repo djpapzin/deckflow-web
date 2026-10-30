@@ -148,3 +148,32 @@ class TransferTests(unittest.TestCase):
         connection=Mock();connection.send.side_effect=BrokenPipeError()
         with self.assertRaises(BrokenPipeError): s.stream_audio(io.BytesIO(b'audio'),connection)
         self.assertEqual(connection.send.call_count,1)
+
+class CloudAdmissionTests(unittest.TestCase):
+    def test_overlapping_uploads_obey_queue_cap_and_cached_jobs_still_load(self):
+        from unittest.mock import patch, Mock
+        import time
+        api=ApiTests(); api.setUp()
+        try:
+            with patch.object(s,'CLOUD',True), patch.object(s,'JOBS',{}), patch.object(s,'POOL') as pool, patch.object(s,'LIMITS') as limits, patch.object(s.subprocess,'run',return_value=Mock(stdout='45')):
+                limits.allow.return_value=True
+                connections=[]
+                for n in range(3):
+                    conn=http.client.HTTPConnection('127.0.0.1',api.server.server_port)
+                    body=('audio'+str(n)).encode()
+                    conn.putrequest('POST','/api/stems?quality=fast',skip_host=True)
+                    conn.putheader('Host','127.0.0.1:8787');conn.putheader('Origin','https://deckflow.djpapzin.com')
+                    conn.putheader('Content-Length',str(len(body)));conn.endheaders()
+                    connections.append((conn,body))
+                # All request handlers wait on their withheld bodies before admission.
+                time.sleep(.1)
+                for conn,body in connections: conn.send(body)
+                codes=[]
+                for conn,_ in connections:
+                    response=conn.getresponse();codes.append(response.status);response.read();conn.close()
+                self.assertEqual(sorted(codes),[202,202,429])
+                self.assertEqual(len(s.JOBS),2);self.assertEqual(pool.submit.call_count,2)
+                cached=b'cached';key=hashlib.sha256((s.CACHE_VERSION+':fast').encode()+cached).hexdigest()
+                folder=s.DATA/key;folder.mkdir();(folder/'complete.json').write_text('{}')
+                self.assertEqual(api.call('POST','/api/stems?quality=fast',cached)[0],202)
+        finally: api.tearDown()

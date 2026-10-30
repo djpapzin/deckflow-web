@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { connectMacStems, STEM_BASE } from '../stemConnection';
+import { connectMacStems, STEM_BASE, CLOUD_STEMS } from '../stemConnection';
 export default function StemConnection({onConnected}:{onConnected:()=>void}) {
   const [state,setState]=useState<'idle'|'connecting'|'ready'|'error'>('idle');
   const [message,setMessage]=useState('Connect to prepare stems on this Mac.');
+  if (CLOUD_STEMS) return <p className="intro" role="status">Cloud stems · Oracle CPU · audio uploads for processing · 10-minute / 30 MB songs · temporary files expire after 6 hours</p>;
   if (!STEM_BASE) {
     const view=location.pathname.startsWith('/live/')?'production':location.pathname.startsWith('/dev/')?'dev':null;
     return view ? <p className="intro" role="status">Mac-connected {view} · stems run locally</p> : null;

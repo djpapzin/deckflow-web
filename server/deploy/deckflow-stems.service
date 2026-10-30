@@ -1,0 +1,34 @@
+[Unit]
+Description=DeckFlow CPU stem and YouTube tester service
+After=network-online.target
+Wants=network-online.target
+[Service]
+User=deckflow
+Group=deckflow
+WorkingDirectory=/srv/deckflow/app
+Environment=DECKFLOW_CLOUD=1
+Environment=DECKFLOW_PORT=8790
+Environment=DECKFLOW_HOSTS=127.0.0.1:8790,localhost:8790,api-deckflow.djpapzin.com
+Environment=DECKFLOW_DATA=/srv/deckflow/data
+Environment=DECKFLOW_MODELS=/srv/deckflow/models
+Environment=DECKFLOW_PYTHON=/srv/deckflow/venv/bin/python
+Environment=DECKFLOW_FFMPEG_DIR=/usr/bin
+Environment=DECKFLOW_THREADS=2
+Environment=DECKFLOW_JOB_TIMEOUT=7200
+Environment=PATH=/srv/deckflow/venv/bin:/usr/bin:/bin
+Environment=OMP_NUM_THREADS=2
+ExecStart=/srv/deckflow/venv/bin/python -u server/stems.py
+Restart=on-failure
+RestartSec=5
+Nice=15
+CPUQuota=150%
+MemoryMax=6G
+TasksMax=128
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/deckflow/data /srv/deckflow/models
+TimeoutStopSec=15
+[Install]
+WantedBy=multi-user.target

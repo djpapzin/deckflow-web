@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Loopback-only stem preparation and DeckFlow hosting; one separation at a time."""
+import io
 import errno
 import time
+from cloud_limits import CloudLimits
 import hashlib
 from youtube_import import IMPORT_LOCK, import_audio
 import json
@@ -12,17 +14,22 @@ import select
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
-from threading import Lock
+from threading import Lock, Thread
 from urllib.parse import urlparse, parse_qs
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA = Path.home() / 'Library/Application Support/DeckFlow/stems'
+DATA = Path(os.environ.get('DECKFLOW_DATA', str(Path.home() / 'Library/Application Support/DeckFlow/stems')))
+CLOUD = os.environ.get('DECKFLOW_CLOUD') == '1'
+PORT = int(os.environ.get('DECKFLOW_PORT', '8787'))
+HOSTS = set(os.environ.get('DECKFLOW_HOSTS', f'127.0.0.1:{PORT},localhost:{PORT}').split(','))
+LIMITS = CloudLimits(DATA)
 CLI = Path.home() / '.local/share/deckflow-stems/venv/bin/audio-separator'
-MODELS = Path.home() / '.local/share/deckflow-stems/models'
+ENGINE_PYTHON = Path(os.environ.get('DECKFLOW_PYTHON', str(CLI.parent/'python')))
+MODELS = Path(os.environ.get('DECKFLOW_MODELS', str(Path.home() / '.local/share/deckflow-stems/models')))
 MODEL = 'htdemucs.yaml'
 CACHE_VERSION = MODEL + ':cpu-float-v1'
-FFMPEG = '/Applications/Ultimate Vocal Remover.app/Contents/Resources'
+FFMPEG = os.environ.get('DECKFLOW_FFMPEG_DIR', '/Applications/Ultimate Vocal Remover.app/Contents/Resources')
 POOL = ThreadPoolExecutor(max_workers=1)
 JOBS = {}
 LOCK = Lock()
@@ -38,13 +45,13 @@ def separate_track(folder, quality='best'):
         DATA.mkdir(parents=True, exist_ok=True)
         WORKER_LOG = (DATA/'worker.log').open('a')
         env = dict(os.environ, PATH=FFMPEG + os.pathsep + os.environ.get('PATH', ''))
-        WORKER = subprocess.Popen([str(CLI.parent/'python'), str(ROOT/'server/separate.py'),
+        WORKER = subprocess.Popen([str(ENGINE_PYTHON), str(ROOT/'server/separate.py'),
             str(MODELS), MODEL], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=WORKER_LOG, text=True, env=env)
     try:
         WORKER.stdin.write(json.dumps({'source':str(folder/'input.audio'), 'destination':str(folder), 'shifts':1 if quality == 'fast' else 2})+'\n')
         WORKER.stdin.flush()
-        if not select.select([WORKER.stdout], [], [], 1800)[0]: raise TimeoutError('Separation timed out')
+        if not select.select([WORKER.stdout], [], [], int(os.environ.get('DECKFLOW_JOB_TIMEOUT','1800')))[0]: raise TimeoutError('Separation timed out')
         result = json.loads(WORKER.stdout.readline())
         if not result.get('ok'): raise RuntimeError(result.get('error','Worker failed'))
         (folder/'processing.json').write_text(json.dumps(result))
@@ -114,37 +121,52 @@ class Handler(SimpleHTTPRequestHandler):
         if ref.netloc == self.headers.get('Host') and ref.scheme == 'http': return ref.scheme+'://'+ref.netloc
         return None
     def do_POST(self):
-        if self.headers.get('Host') not in ('127.0.0.1:8787','localhost:8787'): return self.reply(403, {'error':'Host not allowed'})
+        if self.headers.get('Host') not in HOSTS: return self.reply(403, {'error':'Host not allowed'})
         if urlparse(self.path).path == '/api/import/youtube':
             return self.youtube_import()
         if urlparse(self.path).path != '/api/stems': return self.reply(404, {'error':'Not found'})
         if not allowed(self.request_origin()): return self.reply(403, {'error':'Origin not allowed'})
+        if CLOUD and not LIMITS.allow(self.headers.get('CF-Connecting-IP', self.client_address[0])):
+            return self.reply(429, {'error':'Tester limit reached. Try again in an hour.'})
         quality = parse_qs(urlparse(self.path).query).get('quality',['best'])[0]
         if quality not in ('fast','best'): return self.reply(400, {'error':'Invalid quality'})
         try: length = int(self.headers.get('Content-Length', '0'))
         except ValueError: return self.reply(400, {'error':'Invalid length'})
-        if length <= 0 or length > MAX_BYTES: return self.reply(413, {'error':'Choose a track under 100 MB'})
-        with LOCK:
-            if sum(status in ('queued','processing') for status in JOBS.values()) >= 8:
-                return self.reply(429, {'error':'Queue full; try again shortly'})
+        if length <= 0 or length > (30*1024*1024 if CLOUD else MAX_BYTES): return self.reply(413, {'error':'Choose a track under 30 MB for cloud testing.' if CLOUD else 'Choose a track under 100 MB'})
         data = self.rfile.read(length)
         if len(data) != length: return self.reply(400, {'error':'Incomplete upload'})
         version = CACHE_VERSION if quality == 'best' else CACHE_VERSION + ':fast'
         key = hashlib.sha256(version.encode()+data).hexdigest(); folder = DATA/key
         with LOCK:
             if not (folder/'complete.json').exists() and JOBS.get(key) not in ('queued','processing'):
+                if sum(status in ('queued','processing') for status in JOBS.values()) >= (2 if CLOUD else 8):
+                    return self.reply(429, {'error':'Queue full; try again shortly'})
+                if CLOUD:
+                    try: LIMITS.reserve({k for k,v in JOBS.items() if v in ('queued','processing')})
+                    except ValueError as error: return self.reply(507, {'error':str(error)})
                 folder.mkdir(parents=True, exist_ok=True); (folder/'input.audio').write_bytes(data)
+                if CLOUD:
+                    try:
+                        duration=float(subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','default=noprint_wrappers=1:nokey=1',str(folder/'input.audio')],capture_output=True,text=True,check=True,timeout=20).stdout)
+                        if not 0 < duration <= 600: raise ValueError('Use a song under 10 minutes for cloud testing.')
+                    except Exception:
+                        (folder/'input.audio').unlink(missing_ok=True)
+                        return self.reply(400, {'error':'Cloud testing supports valid audio under 10 minutes.'})
                 JOBS[key] = 'queued'; POOL.submit(run_job,key,quality)
         return self.reply(202, {'id':key})
     def youtube_import(self):
         if not allowed(self.request_origin()): return self.reply(403, {'error':'Origin not allowed'})
+        if CLOUD and not LIMITS.allow(self.headers.get('CF-Connecting-IP', self.client_address[0])):
+            return self.reply(429, {'error':'Tester limit reached. Try again in an hour.'})
         try:
+            if CLOUD:
+                with LOCK: LIMITS.reserve({k for k,v in JOBS.items() if v in ('queued','processing')})
             length = int(self.headers.get('Content-Length', '0'))
             if not 0 < length <= 4096: return self.reply(413, {'error':'Invalid link request'})
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict): raise ValueError('Invalid link request')
             if not IMPORT_LOCK.acquire(blocking=False): return self.reply(429, {'error':'Another import is running. Try again shortly.'})
-            try: name, audio = import_audio(payload.get('url'), FFMPEG, CLI.parent/'python')
+            try: name, audio = import_audio(payload.get('url'), FFMPEG, ENGINE_PYTHON, 600 if CLOUD else 1200)
             finally: IMPORT_LOCK.release()
         except (ValueError, RuntimeError) as error:
             return self.reply(400, {'error':str(error)})
@@ -158,9 +180,11 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header('X-Track-Name',json.dumps(name, ensure_ascii=True))
         self.send_header('Access-Control-Expose-Headers','X-Track-Name')
         self.send_header('Cache-Control','no-store')
-        self.end_headers(); self.wfile.write(audio)
+        self.end_headers()
+        try: stream_audio(io.BytesIO(audio), self.connection)
+        except (OSError, ConnectionError): self.close_connection = True
     def do_GET(self):
-        if self.headers.get('Host') not in ('127.0.0.1:8787','localhost:8787'): return self.reply(403, {'error':'Host not allowed'})
+        if self.headers.get('Host') not in HOSTS: return self.reply(403, {'error':'Host not allowed'})
         path = urlparse(self.path).path
         views = {'/dev':'https://dev.deckflow.djpapzin.com/', '/live':'https://deckflow.djpapzin.com/'}
         view = next((prefix for prefix in views if path == prefix or path.startswith(prefix+'/')), None)
@@ -187,7 +211,7 @@ class Handler(SimpleHTTPRequestHandler):
 
             # API responses and audio are available only to the known app origins.
             if not allowed(self.request_origin()): return self.reply(403, {'error':'Origin not allowed'})
-            if path == '/api/health': return self.reply(200, {'ready':CLI.exists(), 'model':MODEL})
+            if path == '/api/health': return self.reply(200, {'ready':ENGINE_PYTHON.exists() and (not CLOUD or (MODELS/MODEL).exists()), 'model':MODEL, 'cloud':CLOUD})
             match = re.fullmatch(r'/api/stems/([a-f0-9]{64})(?:/(vocals|drums|bass|other|instrumental)\.wav)?', path)
             if not match: return self.reply(404, {'error':'Not found'})
             key, stem = match.groups(); folder = DATA/key
@@ -195,7 +219,7 @@ class Handler(SimpleHTTPRequestHandler):
             if stem:
                 if not ready: return self.reply(404, {'error':'Not ready'})
                 audio = folder/(stem+'.wav'); self.send_response(200)
-                self.send_header('Content-Type','audio/wav'); self.send_header('Content-Length',str(audio.stat().st_size))
+                self.send_header('Cache-Control','no-store'); self.send_header('Content-Type','audio/wav'); self.send_header('Content-Length',str(audio.stat().st_size))
                 self.end_headers()
                 try:
                     with audio.open('rb') as source: stream_audio(source, self.connection)
@@ -207,7 +231,15 @@ class Handler(SimpleHTTPRequestHandler):
         return super().do_GET()
     def log_message(self, format, *args): pass
 
+def expire_cloud_cache():
+    while True:
+        time.sleep(300)
+        with LOCK:
+            try: LIMITS.reserve({k for k,v in JOBS.items() if v in ('queued','processing')}, reserve_bytes=0)
+            except ValueError: pass
+
 if __name__ == '__main__':
     DATA.mkdir(parents=True,exist_ok=True)
+    if CLOUD: Thread(target=expire_cloud_cache,daemon=True).start()
     print('DeckFlow + local stem service: http://127.0.0.1:8787',flush=True)
-    ThreadingHTTPServer(('127.0.0.1',8787), Handler).serve_forever()
+    ThreadingHTTPServer(('127.0.0.1',PORT), Handler).serve_forever()

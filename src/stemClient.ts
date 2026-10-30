@@ -1,10 +1,13 @@
 import type { AudioRuntime } from './audio';
 import { estimateStemSeconds, stemCountdown, type StemQuality } from './stemProgress';
-import { localStemFetch, requireStemConnection } from './stemConnection';
+import { localStemFetch, requireStemConnection, CLOUD_STEMS } from './stemConnection';
 export async function prepareStems(file: File, rt: AudioRuntime, id: string, token: number, signal: AbortSignal, status: (text: string) => void, quality: StemQuality = 'best') {
   const request = async (path: string, init: RequestInit = {}) => {
     const response = await localStemFetch(path, { ...init, signal });
-    if (!response.ok) throw new Error(`Stem service: ${response.status}`);
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      throw new Error(detail.error || `Stem service: ${response.status}`);
+    }
     return response;
   };
   await requireStemConnection();
@@ -15,11 +18,12 @@ export async function prepareStems(file: File, rt: AudioRuntime, id: string, tok
   try {
     const probe = await localStemFetch('/api/health', { signal: probeController.signal });
     if (!probe.ok || !(await probe.json()).ready) throw new Error('Not ready');
-  } catch { throw new Error('Start the DeckFlow stem service on your Mac. If this browser blocks the connection, open http://127.0.0.1:8787.'); }
+  } catch { throw new Error(CLOUD_STEMS ? 'Cloud separator is temporarily unavailable. Please retry shortly.' : 'Start the DeckFlow stem service on your Mac. If this browser blocks the connection, open http://127.0.0.1:8787.'); }
   finally { clearTimeout(probeTimer); signal.removeEventListener('abort', cancelProbe); }
-  status('Sending to local separator…');
+  status(CLOUD_STEMS ? 'Uploading to cloud separator…' : 'Sending to local separator…');
   const { id: job } = await (await request(`/api/stems?quality=${quality}`, { method:'POST', headers:{'Content-Type':'application/octet-stream'}, body:file })).json();
-  const estimate = estimateStemSeconds(rt.players[id].duration, quality);
+  const duration = rt.players[id].duration;
+  const estimate = CLOUD_STEMS ? Math.max(estimateStemSeconds(duration, quality), duration * (quality === 'fast' ? 5 : 10) + 20) : estimateStemSeconds(duration, quality);
   let processingStarted: number | undefined;
   for (;;) {
     signal.throwIfAborted();

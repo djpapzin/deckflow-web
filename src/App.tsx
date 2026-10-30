@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { el } from '@elemaudio/core';
+import { CLOUD_STEMS } from './stemConnection';
 import { initAudio, getRuntime } from './audio';
 import { buildDeckSignal } from './deck';
 import { useDeck } from './useDeck';
@@ -195,7 +196,7 @@ export default function App() {
         <span className="subtitle">DIGITAL MIXING CONSOLE</span>
         <span className="build-badge">{import.meta.env.VITE_APP_ENV === 'development' ? 'DEV PREVIEW · NOT LIVE' : 'CLASSIC MIX · 2 DECKS'}</span>
       </header>
-      <p className="intro">Click DEMO for a vocal sample, or load your own tracks. Music stays on your device.
+      <p className="intro">Click DEMO for a vocal sample, or load your own tracks. {CLOUD_STEMS ? 'Audio uploads to Oracle for stem processing.' : 'Music stays on your device.'}
         {' '}<a href={`${import.meta.env.BASE_URL}demo-song-license.txt`} target="_blank" rel="noreferrer">Demo: Karissa Hobbs · CC BY 3.0</a></p>
       <StemConnection onConnected={() => {
         if (deckA.stemsFailed) deckA.retryStems();
