@@ -214,6 +214,7 @@ export default function App() {
             color={deck.state.id === 'A' ? '#36a9ff' : '#ff5265'} />
         </div>)}
       </section>
+      <aside className="rotate-prompt" role="note">↻ Rotate your phone for the best mixing experience. You can still use DeckFlow in portrait.</aside>
       <div className="console-viewport"><div className="performance-console">
         <DeckPanel deck={deckA} label="Deck A" ensureAudio={ensureAudio} onRemember={(file,demo) => remember(file,demo,'A')}
           canSync={!!deckA.grid && !!deckB.grid} selected={selectedDeck === 'A'} onSelect={() => setSelectedDeck('A')} onSync={() => sync('A')} onBeatLock={() => beatLock('A')} syncLocked={lock?.follower === 'A'} leader={lock?.follower === 'A' ? 'B' : undefined} />

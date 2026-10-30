@@ -33,6 +33,12 @@ function fmt(sec: number): string {
 }
 
 export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect, selected, onSync, onBeatLock, syncLocked, leader, onRemember }: Props) {
+  const cuePointer = useRef<number | null>(null);
+  const releaseCuePointer = (e: React.PointerEvent) => {
+    if (cuePointer.current !== e.pointerId) return;
+    cuePointer.current = null; deck.cueUp();
+  };
+  const [utilityOpen, setUtilityOpen] = useState(() => typeof window === 'undefined' || !window.matchMedia('(max-width: 950px)').matches);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState('');
@@ -138,7 +144,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
       </div>
 
       <div className="deck-workbench"><TempoControl deck={deck} locked={syncLocked} />
-        <div className="deck-utility">      <div className="cue-tools"><button className="btn ghost" onClick={deck.setCue} disabled={!track}>SET CUE</button>
+        <details className="deck-utility" open={utilityOpen} onToggle={e => setUtilityOpen(e.currentTarget.open)}><summary className="utility-summary">Cue, loops & beat grid</summary>      <div className="cue-tools"><button className="btn ghost" onClick={deck.setCue} disabled={!track}>SET CUE</button>
         <span>{deck.state.cueNorm !== null && track ? `Cue ${fmt(deck.state.cueNorm * track.duration)}` : 'Choose a position, then set cue'}</span></div>
 
       <div className="loop-controls" role="group" aria-label={`${label} loop controls`}>
@@ -173,7 +179,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         <button className="btn ghost" disabled={!deck.grid} onClick={deck.alignBeat}>Set beat here</button>
       </div></details>
 
-</div><JogWheel deck={deck} /></div>
+</details><JogWheel deck={deck} /></div>
       <div className="stem-controls" role="group" aria-label={`${label} stem controls`}>
         <span className="control-caption">STEMS</span>
         {STEM_MODES.map(mode => <button key={mode.id}
@@ -195,8 +201,8 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
       <div className="transport">
         <button className={`btn cue-btn ${deck.state.cuePreview ? 'active' : ''}`} disabled={!track}
           title="Playing: stop at cue. Paused: hold to preview; release to return. Press Play while holding to continue."
-          onPointerDown={e => { if (e.button !== 0) return; e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); deck.cueDown(); }}
-          onPointerUp={deck.cueUp} onPointerCancel={deck.cueUp} onLostPointerCapture={deck.cueUp} onBlur={deck.cueUp}
+          onPointerDown={e => { if (e.button !== 0 || cuePointer.current !== null) return; e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); cuePointer.current = e.pointerId; deck.cueDown(); }}
+          onPointerUp={releaseCuePointer} onPointerCancel={releaseCuePointer} onLostPointerCapture={releaseCuePointer} onBlur={() => { cuePointer.current = null; deck.cueUp(); }}
           onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!e.repeat) deck.cueDown(); } }}
           onKeyUp={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); deck.cueUp(); } }}
           onClick={e => { if (e.detail === 0) { deck.cueDown(); deck.cueUp(); } }}>CUE</button>

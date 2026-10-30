@@ -23,40 +23,40 @@ export default function Knob({
   onChange,
   format,
 }: Props) {
-  const dragRef = useRef<{ startY: number; startValue: number } | null>(null);
-
-  // Map value → -135°..+135° sweep.
+  const dragRef = useRef<{ startY: number; startValue: number; pointerId: number } | null>(null);
   const rotation = ((value - min) / (max - min)) * 270 - 135;
-
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      e.preventDefault();
-      dragRef.current = { startY: e.clientY, startValue: value };
-      const range = max - min;
-
-      const move = (ev: PointerEvent) => {
-        if (!dragRef.current) return;
-        const deltaY = dragRef.current.startY - ev.clientY;
-        const next = dragRef.current.startValue + (deltaY * range) / 150; // 150px = full sweep
-        onChange(Math.max(min, Math.min(max, Math.round(next * 10) / 10)));
-      };
-      const up = () => {
-        dragRef.current = null;
-        window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', up);
-      };
-      window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', up);
-    },
-    [value, min, max, onChange],
-  );
+  const release = (e: React.PointerEvent) => {
+    if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null;
+  };
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0 || dragRef.current) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { startY: e.clientY, startValue: value, pointerId: e.pointerId };
+  }, [value]);
 
   return (
     <div className="knob">
       <span className="knob-label">{label}</span>
       <div
         className="knob-body"
+        role="slider" tabIndex={0} aria-label={label} aria-valuemin={min} aria-valuemax={max} aria-valuenow={value}
         onPointerDown={handlePointerDown}
+        onPointerMove={e => {
+          const drag = dragRef.current;
+          if (!drag || drag.pointerId !== e.pointerId) return;
+          const next = drag.startValue + (drag.startY-e.clientY)*(max-min)/150;
+          onChange(Math.max(min,Math.min(max,Math.round(next*100)/100)));
+        }}
+        onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}
+        onKeyDown={e => {
+          if (e.key === 'Home') { e.preventDefault(); onChange(defaultValue); }
+          if (['ArrowUp','ArrowRight','ArrowDown','ArrowLeft'].includes(e.key)) {
+            e.preventDefault();
+            const step=(max-min)/100 * (['ArrowUp','ArrowRight'].includes(e.key)?1:-1);
+            onChange(Math.max(min,Math.min(max,value+step)));
+          }
+        }}
         onDoubleClick={() => onChange(defaultValue)}
       >
         <div className="knob-dial" style={{ transform: `rotate(${rotation}deg)` }}>
