@@ -39,7 +39,13 @@ export async function prepareStems(file: File, rt: AudioRuntime, id: string, tok
     });
   }
   status('Loading aligned stems…');
-  const buffers = await Promise.all(['vocals','drums','bass','other'].map(async stem => rt.ctx.decodeAudioData(await (await request(`/api/stems/${job}/${stem}.wav`)).arrayBuffer())));
+  // Transfer/decode one full-song stem at a time to avoid exhausting Safari
+  // and macOS network buffers with four large WAV responses at once.
+  const buffers: AudioBuffer[] = [];
+  for (const stem of ['vocals','drums','bass','other']) {
+    signal.throwIfAborted();
+    buffers.push(await rt.ctx.decodeAudioData(await (await request(`/api/stems/${job}/${stem}.wav`)).arrayBuffer()));
+  }
   signal.throwIfAborted();
   if (buffers.some(b => Math.abs(b.duration - rt.players[id].duration) > .1)) throw new Error('Stem duration does not match this track');
   await rt.stems[id].load(buffers,token);

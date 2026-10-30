@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Loopback-only stem preparation and DeckFlow hosting; one separation at a time."""
+import errno
+import time
 import hashlib
+from youtube_import import IMPORT_LOCK, import_audio
 import json
 import os
 from pathlib import Path
@@ -71,6 +74,22 @@ def run_job(key, quality='best'):
     except Exception:
         with LOCK: JOBS[key] = 'error'
 
+def stream_audio(source, connection):
+    """Honor partial sends and backpressure without replaying accepted bytes."""
+    for chunk in iter(lambda: source.read(65536), b''):
+        pending = memoryview(chunk)
+        deadline = time.monotonic() + 30
+        while pending:
+            try:
+                sent = connection.send(pending)
+                if not sent: raise ConnectionError('Audio connection closed')
+                pending = pending[sent:]
+                deadline = time.monotonic() + 30
+            except OSError as error:
+                if error.errno not in (errno.ENOBUFS, errno.EAGAIN, errno.EWOULDBLOCK) or time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.01)
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs): super().__init__(*args, directory=str(ROOT/'dist'), **kwargs)
     def end_headers(self):
@@ -96,6 +115,8 @@ class Handler(SimpleHTTPRequestHandler):
         return None
     def do_POST(self):
         if self.headers.get('Host') not in ('127.0.0.1:8787','localhost:8787'): return self.reply(403, {'error':'Host not allowed'})
+        if urlparse(self.path).path == '/api/import/youtube':
+            return self.youtube_import()
         if urlparse(self.path).path != '/api/stems': return self.reply(404, {'error':'Not found'})
         if not allowed(self.request_origin()): return self.reply(403, {'error':'Origin not allowed'})
         quality = parse_qs(urlparse(self.path).query).get('quality',['best'])[0]
@@ -115,6 +136,29 @@ class Handler(SimpleHTTPRequestHandler):
                 folder.mkdir(parents=True, exist_ok=True); (folder/'input.audio').write_bytes(data)
                 JOBS[key] = 'queued'; POOL.submit(run_job,key,quality)
         return self.reply(202, {'id':key})
+    def youtube_import(self):
+        if not allowed(self.request_origin()): return self.reply(403, {'error':'Origin not allowed'})
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= 4096: return self.reply(413, {'error':'Invalid link request'})
+            payload = json.loads(self.rfile.read(length))
+            if not isinstance(payload, dict): raise ValueError('Invalid link request')
+            if not IMPORT_LOCK.acquire(blocking=False): return self.reply(429, {'error':'Another import is running. Try again shortly.'})
+            try: name, audio = import_audio(payload.get('url'), FFMPEG, CLI.parent/'python')
+            finally: IMPORT_LOCK.release()
+        except (ValueError, RuntimeError) as error:
+            return self.reply(400, {'error':str(error)})
+        except subprocess.TimeoutExpired:
+            return self.reply(504, {'error':'Import timed out. Try a shorter video.'})
+        except Exception:
+            return self.reply(502, {'error':'Audio import failed. Please try again.'})
+        self.send_response(200)
+        self.send_header('Content-Type','audio/mpeg')
+        self.send_header('Content-Length',str(len(audio)))
+        self.send_header('X-Track-Name',json.dumps(name, ensure_ascii=True))
+        self.send_header('Access-Control-Expose-Headers','X-Track-Name')
+        self.send_header('Cache-Control','no-store')
+        self.end_headers(); self.wfile.write(audio)
     def do_GET(self):
         if self.headers.get('Host') not in ('127.0.0.1:8787','localhost:8787'): return self.reply(403, {'error':'Host not allowed'})
         path = urlparse(self.path).path
@@ -153,9 +197,10 @@ class Handler(SimpleHTTPRequestHandler):
                 audio = folder/(stem+'.wav'); self.send_response(200)
                 self.send_header('Content-Type','audio/wav'); self.send_header('Content-Length',str(audio.stat().st_size))
                 self.end_headers()
-                with audio.open('rb') as source:
-                    import shutil
-                    shutil.copyfileobj(source,self.wfile)
+                try:
+                    with audio.open('rb') as source: stream_audio(source, self.connection)
+                except (OSError, ConnectionError):
+                    self.close_connection = True
                 return
             with LOCK: status = 'ready' if ready else JOBS.get(key,'missing')
             return self.reply(200, {'status':status})
