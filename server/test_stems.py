@@ -177,3 +177,28 @@ class CloudAdmissionTests(unittest.TestCase):
                 folder=s.DATA/key;folder.mkdir();(folder/'complete.json').write_text('{}')
                 self.assertEqual(api.call('POST','/api/stems?quality=fast',cached)[0],202)
         finally: api.tearDown()
+
+    def test_cloud_admission_uses_duration_and_removes_probe_on_rejection(self):
+        from unittest.mock import patch, Mock
+        from cloud_limits import CloudLimits, stem_storage_budget
+        api=ApiTests();api.setUp()
+        try:
+            limits=CloudLimits(s.DATA,min_free=0)
+            with patch.object(s,'CLOUD',True), patch.object(s,'JOBS',{}), patch.object(s,'RESERVATIONS',{}), patch.object(s,'POOL') as pool, patch.object(s,'LIMITS',limits), patch.object(s.subprocess,'run',return_value=Mock(stdout='204')):
+                data=b'valid audio'
+                code,body,_=api.call('POST','/api/stems?quality=fast',data)
+                self.assertEqual(code,202)
+                key=json.loads(body)['id']
+                self.assertEqual(s.RESERVATIONS[key],stem_storage_budget(204,len(data)))
+                self.assertEqual((s.DATA/key/'input.audio').read_bytes(),data)
+                self.assertEqual(list(s.DATA.glob('upload-*')),[])
+                pool.submit.assert_called_once()
+            for duration,expected in [('nan',400),('601',400),('204',507)]:
+                limits=CloudLimits(s.DATA,max_bytes=100,min_free=0)
+                with patch.object(s,'CLOUD',True), patch.object(s,'JOBS',{}), patch.object(s,'POOL') as pool, patch.object(s,'LIMITS',limits), patch.object(s.subprocess,'run',return_value=Mock(stdout=duration)):
+                    code,_,_=api.call('POST','/api/stems?quality=fast',b'reject')
+                    self.assertEqual(code,expected)
+                    self.assertEqual(list(s.DATA.glob('upload-*')),[])
+                    self.assertEqual(s.JOBS,{})
+                    pool.submit.assert_not_called()
+        finally: api.tearDown()
