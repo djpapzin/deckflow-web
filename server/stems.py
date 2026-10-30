@@ -133,15 +133,14 @@ class Handler(SimpleHTTPRequestHandler):
         try: length = int(self.headers.get('Content-Length', '0'))
         except ValueError: return self.reply(400, {'error':'Invalid length'})
         if length <= 0 or length > (30*1024*1024 if CLOUD else MAX_BYTES): return self.reply(413, {'error':'Choose a track under 30 MB for cloud testing.' if CLOUD else 'Choose a track under 100 MB'})
-        with LOCK:
-            if sum(status in ('queued','processing') for status in JOBS.values()) >= (2 if CLOUD else 8):
-                return self.reply(429, {'error':'Queue full; try again shortly'})
         data = self.rfile.read(length)
         if len(data) != length: return self.reply(400, {'error':'Incomplete upload'})
         version = CACHE_VERSION if quality == 'best' else CACHE_VERSION + ':fast'
         key = hashlib.sha256(version.encode()+data).hexdigest(); folder = DATA/key
         with LOCK:
             if not (folder/'complete.json').exists() and JOBS.get(key) not in ('queued','processing'):
+                if sum(status in ('queued','processing') for status in JOBS.values()) >= (2 if CLOUD else 8):
+                    return self.reply(429, {'error':'Queue full; try again shortly'})
                 if CLOUD:
                     try: LIMITS.reserve({k for k,v in JOBS.items() if v in ('queued','processing')})
                     except ValueError as error: return self.reply(507, {'error':str(error)})
