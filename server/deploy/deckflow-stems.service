@@ -13,7 +13,7 @@ Environment=DECKFLOW_DATA=/srv/deckflow/data
 Environment=DECKFLOW_MODELS=/srv/deckflow/models
 Environment=DECKFLOW_PYTHON=/srv/deckflow/venv/bin/python
 Environment=DECKFLOW_FFMPEG_DIR=/usr/bin
-Environment=DECKFLOW_THREADS=2
+Environment=DECKFLOW_THREADS=1
 Environment=DECKFLOW_JOB_TIMEOUT=7200
 Environment=PATH=/srv/deckflow/venv/bin:/usr/bin:/bin
 Environment=OMP_NUM_THREADS=2
