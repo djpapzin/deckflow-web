@@ -173,7 +173,7 @@ jobs if doing so would reduce free space below 12 GiB. Limits apply only to the
 DeckFlow service's generated data; other VPS files are never cleaned up.
 
 The deployment templates in `server/deploy/` configure a dedicated `deckflow`
-user, CPU quota of 1.5 cores, two Torch threads, 6 GiB memory ceiling and separate
+user, CPU quota of 1.5 cores, one Torch thread, 6 GiB memory ceiling and separate
 Cloudflare Tunnel. The API binds to loopback port 8790; HTTPS traffic arrives
 through the tunnel. Existing VPS services and firewall rules are unchanged.
 Each IP is limited to six new processing/import requests per hour, with a global
@@ -198,3 +198,6 @@ are rejected before download and checked again before any audio is returned.
 Initial Oracle benchmark: 45 seconds of demo audio took about 220 seconds in Fast
 mode on the busy shared A1 CPU. Full songs can take many minutes. Countdown uses
 this approximate five-times-duration baseline for Fast and ten-times for Best.
+The one-thread setting reduces CPU work under contention without changing the
+model, passes or overlap. See [Oracle performance measurements](docs/oracle-performance.md)
+for the bounded benchmark and its limits; a full-song speedup is not guaranteed.
