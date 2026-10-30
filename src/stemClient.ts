@@ -1,18 +1,19 @@
 import type { AudioRuntime } from './audio';
 import { estimateStemSeconds, stemCountdown, type StemQuality } from './stemProgress';
-const BASE = location.port === '8787' ? '' : 'http://127.0.0.1:8787';
+import { localStemFetch, requireStemConnection } from './stemConnection';
 export async function prepareStems(file: File, rt: AudioRuntime, id: string, token: number, signal: AbortSignal, status: (text: string) => void, quality: StemQuality = 'best') {
   const request = async (path: string, init: RequestInit = {}) => {
-    const response = await fetch(`${BASE}${path}`, { ...init, signal });
+    const response = await localStemFetch(path, { ...init, signal });
     if (!response.ok) throw new Error(`Stem service: ${response.status}`);
     return response;
   };
+  await requireStemConnection();
   const probeController = new AbortController();
   const cancelProbe = () => probeController.abort();
   signal.addEventListener('abort', cancelProbe, { once:true });
-  const probeTimer = setTimeout(cancelProbe, 2500);
+  const probeTimer = setTimeout(cancelProbe, 10000);
   try {
-    const probe = await fetch(`${BASE}/api/health`, { signal: probeController.signal });
+    const probe = await localStemFetch('/api/health', { signal: probeController.signal });
     if (!probe.ok || !(await probe.json()).ready) throw new Error('Not ready');
   } catch { throw new Error('Start the DeckFlow stem service on your Mac. If this browser blocks the connection, open http://127.0.0.1:8787.'); }
   finally { clearTimeout(probeTimer); signal.removeEventListener('abort', cancelProbe); }

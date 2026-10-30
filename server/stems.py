@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from threading import Lock
 from urllib.parse import urlparse, parse_qs
+from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = Path.home() / 'Library/Application Support/DeckFlow/stems'
@@ -51,7 +52,7 @@ def separate_track(folder, quality='best'):
 def allowed(origin):
     if not origin: return False
     parsed = urlparse(origin)
-    return origin in ('https://djpapzin.github.io', 'https://deckflow.djpapzin.com') or (parsed.scheme == 'http' and parsed.hostname in ('127.0.0.1', 'localhost') and parsed.path == '')
+    return origin in ('https://djpapzin.github.io', 'https://deckflow.djpapzin.com', 'https://dev.deckflow.djpapzin.com') or (parsed.scheme == 'http' and parsed.hostname in ('127.0.0.1', 'localhost') and parsed.path == '')
 
 def run_job(key, quality='best'):
     folder = DATA / key
@@ -117,7 +118,27 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.headers.get('Host') not in ('127.0.0.1:8787','localhost:8787'): return self.reply(403, {'error':'Host not allowed'})
         path = urlparse(self.path).path
+        if path == '/dev':
+            self.send_response(302); self.send_header('Location','/dev/'); self.send_header('Content-Length','0'); self.end_headers(); return
+        if path.startswith('/dev/'):
+            asset = path[len('/dev/'):]
+            if asset and not re.fullmatch(r'(?:index\.html|demo-song\.mp3|demo-song-license\.txt|scratch-worklet\.js|assets/[A-Za-z0-9_-]+\.[A-Za-z0-9]+)',asset):
+                return self.reply(404, {'error':'Unknown dev asset'})
+            try:
+                request = Request('https://dev.deckflow.djpapzin.com/'+asset,
+                    headers={'User-Agent':'Mozilla/5.0 (DeckFlow Mac Companion)', 'Accept':'*/*'})
+                with urlopen(request, timeout=20) as remote:
+                    data = remote.read(); content_type = remote.headers.get('Content-Type','application/octet-stream')
+            except Exception:
+                return self.reply(502, {'error':'Cannot load the dev site. Check the internet connection and retry.'})
+            self.send_response(200)
+            self.send_header('Content-Type',content_type)
+            self.send_header('Content-Length',str(len(data)))
+            self.send_header('Cache-Control','no-store')
+            self.send_header('X-Frame-Options','DENY')
+            self.end_headers(); self.wfile.write(data); return
         if path.startswith('/api/'):
+
             # API responses and audio are available only to the known app origins.
             if not allowed(self.request_origin()): return self.reply(403, {'error':'Origin not allowed'})
             if path == '/api/health': return self.reply(200, {'ready':CLI.exists(), 'model':MODEL})

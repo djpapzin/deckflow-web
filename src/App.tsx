@@ -3,6 +3,7 @@ import { el } from '@elemaudio/core';
 import { initAudio, getRuntime } from './audio';
 import { buildDeckSignal } from './deck';
 import { useDeck } from './useDeck';
+import StemConnection from './components/StemConnection';
 import DeckPanel from './components/DeckPanel';
 import Waveform from './components/Waveform';
 import { isTransportSpace } from './keyboard';
@@ -192,10 +193,14 @@ export default function App() {
       <header className="topbar">
         <h1>DECK<span>FLOW</span></h1>
         <span className="subtitle">DIGITAL MIXING CONSOLE</span>
-        <span className="build-badge">CLASSIC MIX · 2 DECKS</span>
+        <span className="build-badge">{import.meta.env.VITE_APP_ENV === 'development' ? 'DEV PREVIEW · NOT LIVE' : 'CLASSIC MIX · 2 DECKS'}</span>
       </header>
       <p className="intro">Click DEMO for a vocal sample, or load your own tracks. Music stays on your device.
         {' '}<a href={`${import.meta.env.BASE_URL}demo-song-license.txt`} target="_blank" rel="noreferrer">Demo: Karissa Hobbs · CC BY 3.0</a></p>
+      <StemConnection onConnected={() => {
+        if (deckA.stemsFailed) deckA.retryStems();
+        if (deckB.stemsFailed) deckB.retryStems();
+      }} />
       <p className="sync-status" role="status">{syncMessage}</p>
 
       <section className="rhythm-display" aria-label="Moving deck waveforms">

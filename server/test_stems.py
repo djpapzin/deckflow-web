@@ -45,6 +45,22 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(code,202);self.assertEqual(json.loads(body)['id'],key)
         self.assertEqual(self.call('POST','/api/stems?quality=wrong',data)[0],400)
 
+    def test_mac_connected_dev_serves_only_fixed_public_dev_assets(self):
+        from unittest.mock import patch, MagicMock
+        remote=MagicMock();remote.__enter__.return_value=remote
+        remote.read.return_value=b'<html>dev preview</html>'
+        remote.headers={'Content-Type':'text/html'}
+        with patch.object(s,'urlopen',return_value=remote) as fetch:
+            code,body,headers=self.call('GET','/dev/')
+            self.assertEqual(code,200);self.assertIn(b'dev preview',body)
+            self.assertEqual(fetch.call_args.args[0].full_url,'https://dev.deckflow.djpapzin.com/')
+            self.assertEqual(headers['Cache-Control'],'no-store')
+            fetch.reset_mock()
+            for path in ['/dev/../secret','/dev/https://evil.example','/dev/%2e%2e/secret']:
+                self.assertEqual(self.call('GET',path)[0],404)
+            fetch.assert_not_called()
+        self.assertEqual(self.call('GET','/dev/',host='evil.example')[0],403)
+
     def test_public_app_cors_and_health(self):
         code,body,headers=self.call('GET','/api/health',origin='https://djpapzin.github.io')
         self.assertEqual(code,200);self.assertIn('ready',json.loads(body))
@@ -52,6 +68,8 @@ class ApiTests(unittest.TestCase):
         code,_,headers=self.call('GET','/api/health',origin='https://deckflow.djpapzin.com')
         self.assertEqual(code,200)
         self.assertEqual(headers['Access-Control-Allow-Origin'],'https://deckflow.djpapzin.com')
+        self.assertEqual(self.call('GET','/api/health',origin='https://dev.deckflow.djpapzin.com')[0],200)
+        self.assertEqual(self.call('GET','/api/health',origin='https://fake.dev.deckflow.djpapzin.com')[0],403)
 
 if __name__ == '__main__': unittest.main()
 
