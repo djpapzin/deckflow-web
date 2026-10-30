@@ -137,3 +137,11 @@ Before rollout:
 
 This is a future feature. Current releases still use each user's own local stem service;
 no shared cloud separation backend is deployed.
+
+### Connect production to your Mac
+
+On `https://deckflow.djpapzin.com`, **CONNECT MAC STEMS** opens
+`http://127.0.0.1:8787/live/`. This Mac-connected production view serves assets
+only from the production hostname and uses same-origin local stem requests.
+The `/dev/` view continues to use only the dev hostname. Start the local companion
+and connect before loading music. Cloud separation remains a future feature.
