@@ -3,7 +3,8 @@
 import io
 import errno
 import time
-from cloud_limits import CloudLimits
+import tempfile
+from cloud_limits import CloudLimits, DEFAULT_RESERVATION, stem_storage_budget
 import hashlib
 from youtube_import import IMPORT_LOCK, import_audio
 import json
@@ -32,6 +33,11 @@ CACHE_VERSION = MODEL + ':cpu-float-v1'
 FFMPEG = os.environ.get('DECKFLOW_FFMPEG_DIR', '/Applications/Ultimate Vocal Remover.app/Contents/Resources')
 POOL = ThreadPoolExecutor(max_workers=1)
 JOBS = {}
+RESERVATIONS = {}
+
+def active_reservations():
+    return {key:RESERVATIONS.get(key,DEFAULT_RESERVATION)
+            for key,status in JOBS.items() if status in ('queued','processing')}
 LOCK = Lock()
 MAX_BYTES = 100 * 1024 * 1024
 WORKER = None
@@ -141,17 +147,24 @@ class Handler(SimpleHTTPRequestHandler):
             if not (folder/'complete.json').exists() and JOBS.get(key) not in ('queued','processing'):
                 if sum(status in ('queued','processing') for status in JOBS.values()) >= (2 if CLOUD else 8):
                     return self.reply(429, {'error':'Queue full; try again shortly'})
-                if CLOUD:
-                    try: LIMITS.reserve({k for k,v in JOBS.items() if v in ('queued','processing')})
-                    except ValueError as error: return self.reply(507, {'error':str(error)})
-                folder.mkdir(parents=True, exist_ok=True); (folder/'input.audio').write_bytes(data)
+                budget = DEFAULT_RESERVATION
                 if CLOUD:
                     try:
-                        duration=float(subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','default=noprint_wrappers=1:nokey=1',str(folder/'input.audio')],capture_output=True,text=True,check=True,timeout=20).stdout)
-                        if not 0 < duration <= 600: raise ValueError('Use a song under 10 minutes for cloud testing.')
-                    except Exception:
-                        (folder/'input.audio').unlink(missing_ok=True)
-                        return self.reply(400, {'error':'Cloud testing supports valid audio under 10 minutes.'})
+                        # Check headroom before creating the probe file. Probe
+                        # duration before reserving the much larger WAV outputs.
+                        LIMITS.reserve(active_reservations(), reserve_bytes=length)
+                        with tempfile.NamedTemporaryFile(dir=DATA, prefix='upload-') as probe:
+                            probe.write(data); probe.flush()
+                            try:
+                                duration=float(subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','default=noprint_wrappers=1:nokey=1',probe.name],capture_output=True,text=True,check=True,timeout=20).stdout)
+                                if not 0 < duration <= 600: raise ValueError('Invalid duration')
+                            except Exception:
+                                return self.reply(400, {'error':'Cloud testing supports valid audio under 10 minutes.'})
+                            budget=stem_storage_budget(duration,length)
+                            LIMITS.reserve(active_reservations(), reserve_bytes=budget-length)
+                    except ValueError as error: return self.reply(507, {'error':str(error)})
+                folder.mkdir(parents=True, exist_ok=True); (folder/'input.audio').write_bytes(data)
+                if CLOUD: RESERVATIONS[key] = budget
                 JOBS[key] = 'queued'; POOL.submit(run_job,key,quality)
         return self.reply(202, {'id':key})
     def youtube_import(self):
@@ -160,7 +173,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(429, {'error':'Tester limit reached. Try again in an hour.'})
         try:
             if CLOUD:
-                with LOCK: LIMITS.reserve({k for k,v in JOBS.items() if v in ('queued','processing')})
+                with LOCK: LIMITS.reserve(active_reservations())
             length = int(self.headers.get('Content-Length', '0'))
             if not 0 < length <= 4096: return self.reply(413, {'error':'Invalid link request'})
             payload = json.loads(self.rfile.read(length))
@@ -235,7 +248,7 @@ def expire_cloud_cache():
     while True:
         time.sleep(300)
         with LOCK:
-            try: LIMITS.reserve({k for k,v in JOBS.items() if v in ('queued','processing')}, reserve_bytes=0)
+            try: LIMITS.reserve(active_reservations(), reserve_bytes=0)
             except ValueError: pass
 
 if __name__ == '__main__':
