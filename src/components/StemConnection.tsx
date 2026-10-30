@@ -3,10 +3,14 @@ import { connectMacStems, STEM_BASE } from '../stemConnection';
 export default function StemConnection({onConnected}:{onConnected:()=>void}) {
   const [state,setState]=useState<'idle'|'connecting'|'ready'|'error'>('idle');
   const [message,setMessage]=useState('Connect to prepare stems on this Mac.');
-  if (!STEM_BASE) return location.pathname.startsWith('/dev/') ? <p className="intro" role="status">Mac-connected dev · stems run locally</p> : null;
-  if (location.origin === 'https://dev.deckflow.djpapzin.com') return <div className="intro">
-    <a className="btn ghost" href="http://127.0.0.1:8787/dev/">CONNECT MAC STEMS</a>{' '}
-    Open the Mac-connected dev view before loading music. It runs the latest dev build with local stems.
+  if (!STEM_BASE) {
+    const view=location.pathname.startsWith('/live/')?'production':location.pathname.startsWith('/dev/')?'dev':null;
+    return view ? <p className="intro" role="status">Mac-connected {view} · stems run locally</p> : null;
+  }
+  const view=location.origin==='https://dev.deckflow.djpapzin.com'?'dev':location.origin==='https://deckflow.djpapzin.com'?'live':null;
+  if (view) return <div className="intro">
+    <a className="btn ghost" href={`http://127.0.0.1:8787/${view}/`}>CONNECT MAC STEMS</a>{' '}
+    Open the Mac-connected {view==='live'?'production':'dev'} view before loading music.
   </div>;
   const connect=async()=>{
     setState('connecting');setMessage('Opening the Mac connection window…');

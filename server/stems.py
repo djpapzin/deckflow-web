@@ -118,19 +118,21 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.headers.get('Host') not in ('127.0.0.1:8787','localhost:8787'): return self.reply(403, {'error':'Host not allowed'})
         path = urlparse(self.path).path
-        if path == '/dev':
-            self.send_response(302); self.send_header('Location','/dev/'); self.send_header('Content-Length','0'); self.end_headers(); return
-        if path.startswith('/dev/'):
-            asset = path[len('/dev/'):]
+        views = {'/dev':'https://dev.deckflow.djpapzin.com/', '/live':'https://deckflow.djpapzin.com/'}
+        view = next((prefix for prefix in views if path == prefix or path.startswith(prefix+'/')), None)
+        if view and path == view:
+            self.send_response(302); self.send_header('Location',view+'/'); self.send_header('Content-Length','0'); self.end_headers(); return
+        if view:
+            asset = path[len(view)+1:]
             if asset and not re.fullmatch(r'(?:index\.html|demo-song\.mp3|demo-song-license\.txt|scratch-worklet\.js|assets/[A-Za-z0-9_-]+\.[A-Za-z0-9]+)',asset):
-                return self.reply(404, {'error':'Unknown dev asset'})
+                return self.reply(404, {'error':'Unknown site asset'})
             try:
-                request = Request('https://dev.deckflow.djpapzin.com/'+asset,
+                request = Request(views[view]+asset,
                     headers={'User-Agent':'Mozilla/5.0 (DeckFlow Mac Companion)', 'Accept':'*/*'})
                 with urlopen(request, timeout=20) as remote:
                     data = remote.read(); content_type = remote.headers.get('Content-Type','application/octet-stream')
             except Exception:
-                return self.reply(502, {'error':'Cannot load the dev site. Check the internet connection and retry.'})
+                return self.reply(502, {'error':'Cannot load the site. Check the internet connection and retry.'})
             self.send_response(200)
             self.send_header('Content-Type',content_type)
             self.send_header('Content-Length',str(len(data)))

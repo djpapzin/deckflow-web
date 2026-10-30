@@ -45,21 +45,26 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(code,202);self.assertEqual(json.loads(body)['id'],key)
         self.assertEqual(self.call('POST','/api/stems?quality=wrong',data)[0],400)
 
-    def test_mac_connected_dev_serves_only_fixed_public_dev_assets(self):
+    def test_mac_connected_views_keep_production_and_dev_assets_separate(self):
         from unittest.mock import patch, MagicMock
         remote=MagicMock();remote.__enter__.return_value=remote
-        remote.read.return_value=b'<html>dev preview</html>'
+        remote.read.return_value=b'<html>preview</html>'
         remote.headers={'Content-Type':'text/html'}
         with patch.object(s,'urlopen',return_value=remote) as fetch:
-            code,body,headers=self.call('GET','/dev/')
-            self.assertEqual(code,200);self.assertIn(b'dev preview',body)
-            self.assertEqual(fetch.call_args.args[0].full_url,'https://dev.deckflow.djpapzin.com/')
-            self.assertEqual(headers['Cache-Control'],'no-store')
-            fetch.reset_mock()
-            for path in ['/dev/../secret','/dev/https://evil.example','/dev/%2e%2e/secret']:
-                self.assertEqual(self.call('GET',path)[0],404)
-            fetch.assert_not_called()
-        self.assertEqual(self.call('GET','/dev/',host='evil.example')[0],403)
+            for prefix,host in [('/dev','https://dev.deckflow.djpapzin.com/'),('/live','https://deckflow.djpapzin.com/')]:
+                code,body,headers=self.call('GET',prefix+'/')
+                self.assertEqual(code,200);self.assertIn(b'preview',body)
+                self.assertEqual(fetch.call_args.args[0].full_url,host)
+                self.assertEqual(headers['Cache-Control'],'no-store')
+                self.call('GET',prefix+'/assets/index-123.js')
+                self.assertEqual(fetch.call_args.args[0].full_url,host+'assets/index-123.js')
+                fetch.reset_mock()
+                for tail in ['../secret','https://evil.example','%2e%2e/secret']:
+                    self.assertEqual(self.call('GET',prefix+'/'+tail)[0],404)
+                fetch.assert_not_called()
+                code,_,headers=self.call('GET',prefix)
+                self.assertEqual(code,302);self.assertEqual(headers['Location'],prefix+'/')
+                self.assertEqual(self.call('GET',prefix+'/',host='evil.example')[0],403)
 
     def test_public_app_cors_and_health(self):
         code,body,headers=self.call('GET','/api/health',origin='https://djpapzin.github.io')
