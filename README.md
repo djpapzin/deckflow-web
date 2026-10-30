@@ -119,3 +119,21 @@ latest public dev build through the loopback companion, so the browser can use
 same-origin stem requests. Only fixed frontend assets are fetched from the dev
 site; songs and stem audio remain local. The hosted dev address and production
 site retain their separate deployments. Start this view before loading music.
+
+## Roadmap
+
+### Oracle Cloud stem separation (planned)
+
+Run a shared stem-preparation backend on Oracle Cloud so people can use DeckFlow
+without installing a local companion. Keep playback, cueing, scratching and mixing
+in the browser after the prepared stems have downloaded.
+
+Before rollout:
+- Benchmark CPU hosting against the local service; evaluate GPU hosting if needed.
+- Add authentication, job queues, per-user processing limits and progress reporting.
+- Explain that cloud processing uploads songs; obtain the user's choice before upload.
+- Define private storage, caching, retention limits and automatic song/stem deletion.
+- Trial the service on dev, measure cost and separation quality, then review before production.
+
+This is a future feature. Current releases still use each user's own local stem service;
+no shared cloud separation backend is deployed.
