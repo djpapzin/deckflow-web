@@ -178,10 +178,22 @@ Cloudflare Tunnel. The API binds to loopback port 8790; HTTPS traffic arrives
 through the tunnel. Existing VPS services and firewall rules are unchanged.
 Each IP is limited to six new processing/import requests per hour, with a global
 24-request hourly cap. This is a small tester service, not a public-scale SLA.
-YouTube currently rejects this Oracle IP with a bot-verification response. Cloud
-YouTube imports are not verified working; the UI warns testers. Import errors leave the
-current deck intact. Files and library entries remain in the browser, but audio
+YouTube may require a server-side account session on data-centre IP addresses.
+Import errors leave the current deck intact. Files and library entries remain in the browser, but audio
 is sent to Oracle when preparing cloud stems.
+
+The service owner can optionally set `DECKFLOW_YTDLP_BIN` to an absolute path to
+an official yt-dlp executable and `DECKFLOW_YOUTUBE_COOKIES_FILE` to a protected
+YouTube cookie file in `/etc/deckflow/youtube.env`. Omit both for anonymous imports
+using the existing Python environment. Keep the session outside the repository,
+owned by the service user with mode `600`, in a private directory. The service
+reads it without modifying it and passes a disposable private copy to each
+download. Requests cannot choose a cookie file or downloader, and credentials
+are never included in API responses. Only use the account authorized by the
+owner; sessions can expire and YouTube can still refuse a download.
+Shared-session imports accept only videos explicitly marked public with no age
+restriction. Private, unlisted, member-only, paid and unknown-visibility videos
+are rejected before download and checked again before any audio is returned.
 
 Initial Oracle benchmark: 45 seconds of demo audio took about 220 seconds in Fast
 mode on the busy shared A1 CPU. Full songs can take many minutes. Countdown uses

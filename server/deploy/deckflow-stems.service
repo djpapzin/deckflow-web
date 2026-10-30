@@ -17,6 +17,7 @@ Environment=DECKFLOW_THREADS=2
 Environment=DECKFLOW_JOB_TIMEOUT=7200
 Environment=PATH=/srv/deckflow/venv/bin:/usr/bin:/bin
 Environment=OMP_NUM_THREADS=2
+EnvironmentFile=-/etc/deckflow/youtube.env
 ExecStart=/srv/deckflow/venv/bin/python -u server/stems.py
 Restart=on-failure
 RestartSec=5

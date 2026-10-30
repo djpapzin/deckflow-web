@@ -117,7 +117,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         <input type="url" aria-label={`YouTube link for ${label}`} placeholder="Paste YouTube video link"
           required value={youtubeUrl} disabled={loading} onChange={event => setYoutubeUrl(event.target.value)} />
         <button className="btn ghost" disabled={loading || !youtubeUrl.trim()}>IMPORT MP3</button>
-        <small role="status">{importStatus || (CLOUD_STEMS ? 'YouTube currently blocks Oracle imports · load an audio file for cloud stems' : 'Import audio you own or have permission to use · up to 20 minutes')}</small>
+        <small role="status">{importStatus || `Import audio you own or have permission to use · up to ${CLOUD_STEMS ? 10 : 20} minutes`}</small>
       </form>
       <div className="track-display">
         <div className="track-name" title={track?.name}>{track ? track.name : 'LOAD A TRACK TO BEGIN'}</div>
