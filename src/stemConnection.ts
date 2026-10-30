@@ -1,10 +1,12 @@
-/** Requests go only to the loopback companion, never a remote audio service. */
-export const STEM_BASE = location.port === '8787' ? '' : 'http://127.0.0.1:8787';
-let connected = !STEM_BASE;
+/** Explicit cloud endpoint for hosted builds; local views retain their Mac companion. */
+const configuredCloud = import.meta.env.VITE_STEM_API_URL || '';
+export const CLOUD_STEMS = location.port !== '8787' && !!configuredCloud;
+export const STEM_BASE = location.port === '8787' ? '' : configuredCloud || 'http://127.0.0.1:8787';
+let connected = !STEM_BASE || CLOUD_STEMS;
 export function localStemFetch(path: string, init: RequestInit = {}) {
   // Same-origin companion requests need no address-space hint. Safari can
   // reject the experimental loopback option before sending any request.
-  return fetch(`${STEM_BASE}${path}`, STEM_BASE
+  return fetch(`${STEM_BASE}${path}`, STEM_BASE && !CLOUD_STEMS
     ? { ...init, targetAddressSpace:'loopback' } as RequestInit
     : init);
 }

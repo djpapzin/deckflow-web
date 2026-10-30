@@ -2,10 +2,10 @@ import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import ts from 'typescript';
-const code=ts.transpileModule(readFileSync(new URL('../src/stemConnection.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText.replace(/^import .*;$/gm,'').replace(/export /g,'');
-function connection({port='',state='prompt',ready=true}={}) {
+const code=ts.transpileModule(readFileSync(new URL('../src/stemConnection.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText.replaceAll('import.meta.env.VITE_STEM_API_URL', 'cloudBase').replace(/^import .*;$/gm,'').replace(/export /g,'');
+function connection({port='',state='prompt',ready=true,cloud=''}={}) {
  const calls=[];
- const api=new Function('location','navigator','fetch',code+';return {localStemFetch,connectMacStems,requireStemConnection};')({port},{permissions:{query:async()=>{if(state==='unsupported')throw TypeError('unknown');return {state};}}},async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>({ready})};});
+ const api=new Function('cloudBase','location','navigator','fetch',code+';return {localStemFetch,connectMacStems,requireStemConnection};')(cloud,{port},{permissions:{query:async()=>{if(state==='unsupported')throw TypeError('unknown');return {state};}}},async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>({ready})};});
  return {api,calls};
 }
 test('hosted requests require an explicit connection; fetch declares loopback and preserves cancellation',async()=>{
@@ -30,4 +30,11 @@ test('same-origin Mac view omits Safari-incompatible address-space hint and pres
  assert.equal(calls[0].options.body,body);
  assert.equal(calls[0].options.signal,controller.signal);
  assert.equal(calls[0].options.method,'POST');
+});
+
+test('configured HTTPS cloud requests need no Mac permission or loopback hint',async()=>{
+ const {api,calls}=connection({cloud:'https://stems.djpapzin.com'});
+ await api.requireStemConnection();await api.localStemFetch('/api/health');
+ assert.equal(calls[0].url,'https://stems.djpapzin.com/api/health');
+ assert.equal('targetAddressSpace' in calls[0].options,false);
 });

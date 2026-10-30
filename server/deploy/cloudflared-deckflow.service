@@ -1,0 +1,13 @@
+[Unit]
+Description=DeckFlow isolated Cloudflare tunnel
+After=network-online.target deckflow-stems.service
+Wants=network-online.target
+[Service]
+ExecStart=/usr/local/bin/cloudflared --no-autoupdate --config /etc/cloudflared/deckflow-stems.yml tunnel run
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+[Install]
+WantedBy=multi-user.target

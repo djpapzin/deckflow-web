@@ -1,0 +1,6 @@
+torch==2.5.1
+torchaudio==2.5.1
+demucs==4.0.1
+soundfile==0.13.1
+numpy==1.26.4
+yt-dlp[default]==2026.10.21

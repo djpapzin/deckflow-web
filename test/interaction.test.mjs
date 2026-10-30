@@ -42,8 +42,8 @@ test('moving waveform stays centered from beginning to end and overview stays wi
 });
 function panel(deck) {
   const src=compile('../src/components/DeckPanel.tsx').replace(/^import .*;$/gm,'').replace('export default function','function');
-  return new Function('useRef','useState','_jsx','_jsxs','Waveform','JogWheel','TempoControl','validLoop','STEM_MODES',src+'\nreturn DeckPanel;')(
-    ()=>({current:null}),v=>[v,()=>{}],(type,props)=>({type,props}),(type,props)=>({type,props}),'Waveform','JogWheel','TempoControl',()=>false,[{id:'full',label:'FULL MIX'},{id:'beat',label:'BEAT'},{id:'acapella',label:'ACAPELLA'},{id:'instrumental',label:'INSTRUMENTAL'},{id:'vocal-reprise',label:'VOCAL REPRISE'},{id:'instrumental-reprise',label:'INSTRUMENTAL REPRISE'}]
+  return new Function('CLOUD_STEMS','useRef','useState','_jsx','_jsxs','Waveform','JogWheel','TempoControl','validLoop','STEM_MODES',src+'\nreturn DeckPanel;')(
+    false,()=>({current:null}),v=>[v,()=>{}],(type,props)=>({type,props}),(type,props)=>({type,props}),'Waveform','JogWheel','TempoControl',()=>false,[{id:'full',label:'FULL MIX'},{id:'beat',label:'BEAT'},{id:'acapella',label:'ACAPELLA'},{id:'instrumental',label:'INSTRUMENTAL'},{id:'vocal-reprise',label:'VOCAL REPRISE'},{id:'instrumental-reprise',label:'INSTRUMENTAL REPRISE'}]
   )({deck,label:'Deck A',ensureAudio:async()=>{},canSync:true,onSync:()=>{},onBeatLock:()=>{},onSelect:()=>{},selected:true,onRemember:()=>{}});
 }
 function buttons(node) {

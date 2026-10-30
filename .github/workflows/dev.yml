@@ -30,6 +30,7 @@ jobs:
       - run: npm run build
         env:
           VITE_APP_ENV: development
+          VITE_STEM_API_URL: https://stems.djpapzin.com
       - name: Keep preview out of search results
         run: 'printf "/*\n  X-Robots-Tag: noindex, nofollow\n" > dist/_headers'
       - name: Deploy dev preview

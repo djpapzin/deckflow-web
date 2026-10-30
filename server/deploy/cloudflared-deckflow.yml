@@ -1,0 +1,8 @@
+tunnel: ec025420-d079-4f7a-acea-3c7dca4398c3
+credentials-file: /etc/cloudflared/deckflow-stems.json
+ingress:
+  - hostname: stems.djpapzin.com
+    service: http://127.0.0.1:8790
+    originRequest:
+      httpHostHeader: 127.0.0.1:8790
+  - service: http_status:404
