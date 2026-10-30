@@ -1,6 +1,6 @@
 // Graph-driving controls live in the reducer; meter/playhead updates stay separate.
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { getRuntime } from './audio';
+import { getRuntime, resumeAudioContext } from './audio';
 import { decodeTrack, publishTrack } from './track';
 import { initialDeckState, METER_EVENT_SUFFIX } from './deck';
 import { reducer, clamp01, type EqBand, type Action } from './transport';
@@ -145,8 +145,10 @@ export function useDeck(id: string, audioReady: boolean) {
   const seek = useCallback((norm: number) => transport({ type: 'SEEK', norm }), [transport]);
   const togglePlay = useCallback(async () => {
     const rt = getRuntime();
-    if (rt?.ctx.state === 'suspended') await rt.ctx.resume();
-    transport(stateRef.current.playing && !stateRef.current.cuePreview ? { type: 'PAUSE' } : { type: 'PLAY' });
+    if (stateRef.current.playing && !stateRef.current.cuePreview) { transport({ type: 'PAUSE' }); return; }
+    if (!rt) throw new Error('Load a track before starting audio.');
+    await resumeAudioContext(rt.ctx);
+    transport({ type: 'PLAY' });
   }, [transport]);
   const setVolume = useCallback((value: number) => dispatch({ type: 'SET_VOLUME', value }), []);
   const setEq = useCallback((band: EqBand, value: number) => dispatch({ type: 'SET_EQ', band, value }), []);

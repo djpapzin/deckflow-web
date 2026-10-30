@@ -22,6 +22,22 @@ export interface AudioRuntime {
 let runtime: AudioRuntime | null = null;
 let initializing: Promise<AudioRuntime> | null = null;
 
+/** Request media playback routing on supporting browsers (not ambient/game audio).
+ * Call from the user's playback/load gesture; feature detection keeps other
+ * browsers working without the experimental Audio Session API.
+ */
+export async function resumeAudioContext(ctx: AudioContext): Promise<void> {
+  if (typeof navigator !== 'undefined') {
+    const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+    try { if (session && session.type !== 'playback') session.type = 'playback'; }
+    catch { /* Unsupported session policy must not prevent normal playback. */ }
+  }
+  if (ctx.state === 'closed') throw new Error('Audio is closed. Reload DeckFlow and load your track again.');
+  // WebKit can report "interrupted" after a call, app switch or screen lock.
+  if (String(ctx.state) !== 'running') await ctx.resume();
+  if (String(ctx.state) !== 'running') throw new Error('Audio is interrupted. Return to DeckFlow and tap Play again.');
+}
+
 /**
  * Boots the AudioContext + Elementary WebRenderer. Must be called from a user
  * gesture (click/tap) — browsers refuse to start an AudioContext otherwise.
@@ -29,13 +45,13 @@ let initializing: Promise<AudioRuntime> | null = null;
  */
 export async function initAudio(): Promise<AudioRuntime> {
   if (runtime) {
-    if (runtime.ctx.state === 'suspended') await runtime.ctx.resume();
+    await resumeAudioContext(runtime.ctx);
     return runtime;
   }
 
   if (!initializing) initializing = bootAudio().finally(() => { initializing = null; });
   const rt = await initializing;
-  if (rt.ctx.state === 'suspended') await rt.ctx.resume();
+  await resumeAudioContext(rt.ctx);
   return rt;
 }
 
@@ -55,7 +71,7 @@ async function bootAudio(): Promise<AudioRuntime> {
 async function buildAudio(ctx: AudioContext): Promise<AudioRuntime> {
   // Resume during the initiating gesture, before worklets wait for processing.
   // Safari may otherwise keep the worklet startup promise pending forever.
-  if (ctx.state === 'suspended') await ctx.resume();
+  await resumeAudioContext(ctx);
   const core = new WebRenderer();
 
   // The renderer resolves to a WebAudio node that contains the WASM runtime.
