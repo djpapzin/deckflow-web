@@ -67,6 +67,9 @@ def import_audio(url, ffmpeg_dir, python=sys.executable, max_duration=1200):
             except (OSError, ValueError):
                 raise RuntimeError('The configured YouTube session is unavailable. Ask the server owner to sign in again.') from None
             command += ['--cookies', str(cookie_copy)]
+            # Verification cookies must never grant public testers the account's
+            # private, member-only, paid or age-restricted viewing permissions.
+            command[command.index('--match-filter') + 1] += " & availability = 'public' & age_limit = 0"
         node = shutil.which('node') or str(Path.home() / '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node')
         if Path(node).exists(): command += ['--js-runtimes', 'node:' + node]
         if ffmpeg.exists(): command += ['--ffmpeg-location', str(ffmpeg.parent)]
@@ -81,5 +84,7 @@ def import_audio(url, ffmpeg_dir, python=sys.executable, max_duration=1200):
         if audio.stat().st_size > MAX_AUDIO_BYTES:
             raise ValueError('Imported audio exceeds 100 MB.')
         metadata = json.loads((Path(directory) / 'track.info.json').read_text())
+        if session and (metadata.get('availability') != 'public' or metadata.get('age_limit') != 0):
+            raise ValueError('Shared YouTube imports support public, non-age-restricted videos only.')
         name = re.sub(r'[^\w .()-]', '_', metadata.get('title', 'YouTube track'))[:120] + '.mp3'
         return name, audio.read_bytes()

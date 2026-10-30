@@ -191,6 +191,9 @@ reads it without modifying it and passes a disposable private copy to each
 download. Requests cannot choose a cookie file or downloader, and credentials
 are never included in API responses. Only use the account authorized by the
 owner; sessions can expire and YouTube can still refuse a download.
+Shared-session imports accept only videos explicitly marked public with no age
+restriction. Private, unlisted, member-only, paid and unknown-visibility videos
+are rejected before download and checked again before any audio is returned.
 
 Initial Oracle benchmark: 45 seconds of demo audio took about 220 seconds in Fast
 mode on the busy shared A1 CPU. Full songs can take many minutes. Countdown uses

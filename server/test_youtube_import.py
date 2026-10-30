@@ -28,7 +28,7 @@ class SessionImportTests(unittest.TestCase):
     def download(self, command, **kwargs):
         directory = Path(command[command.index('-o') + 1]).parent
         (directory / 'track.mp3').write_bytes(b'mp3-audio')
-        (directory / 'track.info.json').write_text(json.dumps({'title': 'Public track'}))
+        (directory / 'track.info.json').write_text(json.dumps({'title': 'Public track', 'availability': 'public', 'age_limit': 0}))
         return subprocess.CompletedProcess(command, 0, '', '')
 
     def test_default_remains_anonymous(self):
@@ -51,12 +51,39 @@ class SessionImportTests(unittest.TestCase):
             self.assertNotIn('session-secret', ' '.join(command))
             cookie.write_text('rotated session')
             self.assertEqual(command[0], sys.executable)
+            rule = command[command.index('--match-filter') + 1]
+            self.assertIn("availability = 'public'", rule)
+            self.assertIn('age_limit = 0', rule)
             return self.download(command, **kwargs)
         with patch.object(y.subprocess, 'run', side_effect=authenticated_download):
             y.import_audio('https://youtu.be/SkVqJ1SGeL0', self.folder)
         self.assertFalse(copies[0].exists())
         self.assertIn('session-secret', self.session.read_text())
 
+    def test_shared_session_never_returns_account_only_or_unknown_visibility_audio(self):
+        os.environ['DECKFLOW_YOUTUBE_COOKIES_FILE'] = str(self.session)
+        for availability in ('private', 'premium_only', 'subscriber_only', 'needs_auth', 'unlisted', None):
+            with self.subTest(availability=availability):
+                def restricted_download(command, **kwargs):
+                    result = self.download(command, **kwargs)
+                    folder = Path(command[command.index('-o') + 1]).parent
+                    (folder / 'track.info.json').write_text(json.dumps({'title': 'Restricted', 'availability': availability, 'age_limit': 0}))
+                    return result
+                with patch.object(y.subprocess, 'run', side_effect=restricted_download):
+                    with self.assertRaisesRegex(ValueError, 'public, non-age-restricted'):
+                        y.import_audio('https://youtu.be/SkVqJ1SGeL0', self.folder)
+
+    def test_shared_session_rejects_age_restriction_and_missing_age_metadata(self):
+        os.environ['DECKFLOW_YOUTUBE_COOKIES_FILE'] = str(self.session)
+        for age_limit in (18, None):
+            def restricted_download(command, **kwargs):
+                result = self.download(command, **kwargs)
+                folder = Path(command[command.index('-o') + 1]).parent
+                (folder / 'track.info.json').write_text(json.dumps({'availability': 'public', 'age_limit': age_limit}))
+                return result
+            with patch.object(y.subprocess, 'run', side_effect=restricted_download):
+                with self.assertRaises(ValueError):
+                    y.import_audio('https://youtu.be/SkVqJ1SGeL0', self.folder)
     def test_unsafe_session_is_rejected_without_downloader_or_path_disclosure(self):
         for mode in (0o644, 0o660):
             self.session.chmod(mode)
