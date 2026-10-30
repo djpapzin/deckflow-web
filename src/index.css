@@ -1552,3 +1552,67 @@ h1 {
 .youtube-import { display:flex; flex-wrap:wrap; gap:6px; padding:8px; }
 .youtube-import input { flex:1; min-width:140px; background:#10151c; color:#eef4ff; border:1px solid #465366; border-radius:4px; padding:8px; }
 .youtube-import small { flex-basis:100%; color:#a9b4c5; font-size:11px; }
+
+/* Phone controls remain usable without scaling down the desktop console. */
+.rotate-prompt { display:none; }
+.knob-body, .cue-btn { touch-action:none; }
+@media (max-width:950px) and (orientation:portrait) {
+  .rotate-prompt { display:block; margin:8px 0; padding:12px; border:1px solid #4385ab; border-radius:8px; background:#122c40; color:#e4f5ff; font-size:14px; }
+}
+@media (max-width:950px) {
+  .performance-console { min-width:0; grid-template-columns:minmax(0,1fr) 120px minmax(0,1fr); }
+  .deck { min-width:0; padding:6px; }
+  .deck-head { flex-wrap:wrap; }
+  .deck-head .btn, .transport .btn, .stem-controls .btn, .hot-cues .btn,
+  .cue-tools .btn, .loop-controls .btn, .beat-controls .btn, .tempo-control .btn { min-height:44px; font-size:10px; padding:6px; }
+  .deck-head .btn { flex:1; }
+  .deck-label { width:100%; font-size:10px; }
+  .deck-workbench, .deck-B .deck-workbench { grid-template-columns:48px minmax(0,1fr); gap:6px; }
+  .deck-workbench>.tempo-control, .deck-B .deck-workbench>.tempo-control { order:1; grid-column:1; grid-row:1; }
+  .deck-workbench>.jog-wheel, .deck-B .deck-workbench>.jog-wheel { order:2; grid-column:2; grid-row:1; width:100%; max-width:180px; justify-self:center; }
+  .deck-workbench>.deck-utility { order:3; grid-column:1 / -1; }
+  .jog-label strong { font-size:18px; }
+  .jog-label small, .jog-label span { font-size:8px; }
+  .tempo-control label { font-size:8px; }
+  .pitch-rail input { width:44px; height:100px; }
+  .transport { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; }
+  .stem-controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .stem-controls .control-caption, .stem-controls small { grid-column:1 / -1; }
+  .hot-cues { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; padding:6px 0; }
+  .hot-cues>span { grid-column:1 / -1; }
+  .central-mixer { padding:8px 4px; }
+  .channel-strips { gap:4px; justify-content:space-around; }
+  .knob-body, .mixer>.knob .knob-body { min-width:44px; min-height:44px; }
+  .knob-label, .knob-value { font-size:9px; line-height:12px; }
+  .fader-input { width:44px; height:110px; touch-action:none; }
+  .fader-body { height:110px; gap:1px; }
+  .meter { height:110px; width:4px; }
+  .mixer { grid-template-columns:1fr; gap:8px; }
+  .xfader-input { width:100%; min-height:44px; touch-action:none; }
+  .youtube-import { flex-wrap:wrap; }
+  .youtube-import input { width:100%; min-width:0; min-height:44px; font-size:16px; }
+  .youtube-import .btn { min-height:44px; }
+  .track-name { font-size:10px; }
+  .beat-controls { flex-wrap:wrap; }
+  .bpm-input input { min-height:44px; font-size:16px; width:70px; }
+  .console-help:after { content:'Drag the platters to scratch · use landscape for more space'; }
+}
+@media (max-width:600px) and (orientation:portrait) {
+  .performance-console { grid-template-columns:minmax(0,1fr); }
+  .central-mixer { grid-row:2; }
+  .channel-strips { justify-content:center; gap:30px; }
+  .mixer { max-width:280px; margin:8px auto; }
+}
+.utility-summary { cursor:pointer; font-size:10px; padding:8px 0; }
+@media (max-width:950px) {
+  .utility-summary { min-height:44px; display:flex; align-items:center; font-size:12px; }
+  .deck { display:flex; flex-direction:column; }
+  .deck-head { order:0; }
+  .youtube-import { order:1; }
+  .track-display { order:2; }
+  .waveform-wrap { order:3; }
+  .deck-workbench { order:4; }
+  .transport { order:5; }
+  .hot-cues { order:6; }
+  .stem-controls { order:7; }
+}

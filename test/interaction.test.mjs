@@ -56,7 +56,7 @@ test('actual Cue and numbered pad handlers dispatch holds, releases and shift-cl
     cueDown:()=>calls.push('down'),cueUp:()=>calls.push('up'),hotCue:(i,clear)=>calls.push([i,clear])};
   const all=buttons(panel(deck));const cue=all.find(b=>b.children==='CUE');
   const event={button:0,pointerId:1,currentTarget:{setPointerCapture:()=>{}},preventDefault:()=>{},key:' ',repeat:false};
-  cue.onPointerDown(event);cue.onPointerCancel(event);cue.onKeyDown({...event,repeat:true});cue.onKeyDown(event);cue.onKeyUp(event);
+  cue.onPointerDown(event);cue.onPointerDown({...event,pointerId:2,pointerType:'touch'});cue.onPointerUp({...event,pointerId:2});assert.deepEqual(calls,['down']);cue.onPointerCancel(event);cue.onLostPointerCapture(event);cue.onKeyDown({...event,repeat:true});cue.onKeyDown(event);cue.onKeyUp(event);
   assert.deepEqual(calls,['down','up','down','up']);
   const pads=all.filter(b=>b['aria-label']?.startsWith('Deck A hot cue '));assert.equal(pads.length,5);
   pads[0].onClick({shiftKey:false});pads[4].onClick({shiftKey:true});
@@ -80,4 +80,23 @@ test('Retry Stems appears only after failure, never during preparation or when r
   const all=buttons(panel({...deck,stemsReady,stemsFailed}));
   assert.equal(all.some(b=>b.children==='RETRY STEMS'),expected);
  }
+});
+
+test('touch EQ drag captures one finger, cancels cleanly, and keeps master precision',()=>{
+ const src=compile('../src/components/Knob.tsx').replace(/^import .*;$/gm,'').replace('export default function','function');
+ const component=new Function('useRef','useCallback','_jsx','_jsxs',src+'\nreturn Knob;')(
+   ()=>({current:null}),f=>f,(type,props)=>({type,props}),(type,props)=>({type,props}));
+ const values=[];let captured;
+ const tree=component({label:'MASTER',value:.8,min:0,max:1,onChange:v=>values.push(v)});
+ const control=tree.props.children.find(c=>c.props?.role==='slider').props;
+ const event=(id,y,button=0)=>({pointerType:'touch',pointerId:id,clientY:y,button,preventDefault(){},currentTarget:{setPointerCapture:i=>captured=i}});
+ control.onPointerDown(event(1,100));assert.equal(captured,1);
+ control.onPointerDown(event(2,100));control.onPointerMove(event(2,0));assert.equal(values.length,0);
+ control.onPointerMove(event(1,97));assert.equal(values.at(-1),.82);
+ control.onPointerCancel(event(2,97));control.onPointerMove(event(1,94));assert.equal(values.at(-1),.84);
+ control.onPointerCancel(event(1,94));const count=values.length;
+ control.onPointerMove(event(1,0));assert.equal(values.length,count);
+ control.onPointerDown(event(3,100));control.onLostPointerCapture(event(3,100));
+ control.onPointerMove(event(3,0));assert.equal(values.length,count);
+ control.onPointerDown(event(4,100,2));control.onPointerMove(event(4,0));assert.equal(values.length,count);
 });
