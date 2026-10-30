@@ -2,7 +2,11 @@
 export const STEM_BASE = location.port === '8787' ? '' : 'http://127.0.0.1:8787';
 let connected = !STEM_BASE;
 export function localStemFetch(path: string, init: RequestInit = {}) {
-  return fetch(`${STEM_BASE}${path}`, { ...init, targetAddressSpace:'loopback' } as RequestInit);
+  // Same-origin companion requests need no address-space hint. Safari can
+  // reject the experimental loopback option before sending any request.
+  return fetch(`${STEM_BASE}${path}`, STEM_BASE
+    ? { ...init, targetAddressSpace:'loopback' } as RequestInit
+    : init);
 }
 export async function connectMacStems(signal?: AbortSignal) {
   // Call directly from a click: the browser may need a user gesture for permission.

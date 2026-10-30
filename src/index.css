@@ -1548,3 +1548,7 @@ h1 {
 
 .stem-controls { display:flex; gap:5px; align-items:center; flex-wrap:wrap; padding:8px; border-top:1px solid #444; }
 .stem-controls small { flex-basis:100%; color:#a9b1c2; font-size:10px; overflow-wrap:anywhere; }
+
+.youtube-import { display:flex; flex-wrap:wrap; gap:6px; padding:8px; }
+.youtube-import input { flex:1; min-width:140px; background:#10151c; color:#eef4ff; border:1px solid #465366; border-radius:4px; padding:8px; }
+.youtube-import small { flex-basis:100%; color:#a9b4c5; font-size:11px; }

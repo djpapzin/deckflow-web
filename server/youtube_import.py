@@ -1,0 +1,57 @@
+"""Single-video imports, with temporary files and bounded local conversion."""
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from threading import Lock
+from urllib.parse import urlparse, parse_qs
+
+IMPORT_LOCK = Lock()
+MAX_AUDIO_BYTES = 100 * 1024 * 1024
+
+def video_url(value):
+    if not isinstance(value, str) or len(value) > 2048:
+        raise ValueError('Paste a YouTube video link.')
+    parsed = urlparse(value.strip())
+    if parsed.scheme != 'https' or parsed.username or parsed.password or parsed.port:
+        raise ValueError('Use an HTTPS YouTube video link.')
+    host = parsed.hostname
+    if host == 'youtu.be':
+        video = parsed.path.lstrip('/')
+    elif host in ('youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'):
+        video = parse_qs(parsed.query).get('v', [''])[0] if parsed.path == '/watch' else parsed.path.split('/')[-1] if re.fullmatch(r'/(shorts|embed)/[^/]+', parsed.path) else ''
+    else:
+        video = ''
+    if not re.fullmatch(r'[A-Za-z0-9_-]{11}', video):
+        raise ValueError('Paste a single YouTube video link, not a playlist or channel.')
+    return 'https://www.youtube.com/watch?v=' + video
+
+def import_audio(url, ffmpeg_dir, python=sys.executable):
+    url = video_url(url)
+    ffmpeg = Path(ffmpeg_dir) / 'ffmpeg'
+    if not ffmpeg.exists() and not shutil.which('ffmpeg'):
+        raise RuntimeError('Audio conversion needs FFmpeg on the DeckFlow companion.')
+    # No shell, cookies, user config, plugins or credentials are used.
+    with tempfile.TemporaryDirectory(prefix='deckflow-import-') as directory:
+        command = [str(python), '-m', 'yt_dlp', '--ignore-config', '--no-plugin-dirs',
+            '--no-playlist', '--no-progress', '--socket-timeout', '20', '--retries', '1',
+            '--max-filesize', '100M', '--match-filter', 'duration <= 1200 & !is_live',
+            '-f', 'bestaudio', '-x', '--audio-format', 'mp3', '--audio-quality', '192K',
+            '--write-info-json', '-o', str(Path(directory) / 'track.%(ext)s')]
+        node = shutil.which('node') or str(Path.home() / '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node')
+        if Path(node).exists(): command += ['--js-runtimes', 'node:' + node]
+        if ffmpeg.exists(): command += ['--ffmpeg-location', str(ffmpeg.parent)]
+        result = subprocess.run(command + ['--', url], capture_output=True, text=True, timeout=600)
+        audio = Path(directory) / 'track.mp3'
+        if result.returncode or not audio.exists():
+            if 'No module named yt_dlp' in result.stderr:
+                raise RuntimeError('YouTube import needs yt-dlp installed in the DeckFlow companion Python environment.')
+            raise RuntimeError('YouTube could not provide this audio. Try a public video under 20 minutes; restricted videos and live streams are unsupported.')
+        if audio.stat().st_size > MAX_AUDIO_BYTES:
+            raise ValueError('Imported audio exceeds 100 MB.')
+        metadata = json.loads((Path(directory) / 'track.info.json').read_text())
+        name = re.sub(r'[^\w .()-]', '_', metadata.get('title', 'YouTube track'))[:120] + '.mp3'
+        return name, audio.read_bytes()

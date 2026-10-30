@@ -41,6 +41,21 @@ export async function initAudio(): Promise<AudioRuntime> {
 
 async function bootAudio(): Promise<AudioRuntime> {
   const ctx = new AudioContext();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([buildAudio(ctx), new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('Audio startup timed out. Click Load Track or Demo again to retry.')), 30000);
+    })]);
+  } catch (error) {
+    if (ctx.state !== 'closed') await ctx.close();
+    throw error;
+  } finally { clearTimeout(timer); }
+}
+
+async function buildAudio(ctx: AudioContext): Promise<AudioRuntime> {
+  // Resume during the initiating gesture, before worklets wait for processing.
+  // Safari may otherwise keep the worklet startup promise pending forever.
+  if (ctx.state === 'suspended') await ctx.resume();
   const core = new WebRenderer();
 
   // The renderer resolves to a WebAudio node that contains the WASM runtime.
@@ -87,10 +102,11 @@ async function bootAudio(): Promise<AudioRuntime> {
       stems[id] = new StemPlayback(ctx, normalGain, originalGain, players[id], () => latency + .03);
     }
 
+    if (ctx.state === 'closed') throw new Error('Audio startup was cancelled; please retry.');
     runtime = { ctx, core, players, scratch, stems, lookAhead: latency + .03 };
     return runtime;
   } catch (error) {
-    await ctx.close();
+    if (ctx.state !== 'closed') await ctx.close();
     throw error;
   }
 }

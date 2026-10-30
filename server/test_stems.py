@@ -103,3 +103,48 @@ class WorkerTests(unittest.TestCase):
                     s.separate_track(Path(directory))
                 worker.kill.assert_called_once();worker.wait.assert_called_once()
                 self.assertIsNone(s.WORKER)
+
+class YoutubeTests(ApiTests):
+    def test_url_validation(self):
+        from youtube_import import video_url
+        for url in ['https://youtu.be/BaW_jenozKc', 'https://www.youtube.com/watch?v=BaW_jenozKc&list=abc', 'https://youtube.com/shorts/BaW_jenozKc']:
+            self.assertEqual(video_url(url), 'https://www.youtube.com/watch?v=BaW_jenozKc')
+        for url in ['https://evil.example/watch?v=BaW_jenozKc', 'http://youtu.be/BaW_jenozKc', 'https://youtube.com/playlist?list=abc', 'https://youtube.com@127.0.0.1/watch?v=BaW_jenozKc', None]:
+            with self.assertRaises(ValueError): video_url(url)
+    def test_import_returns_mp3_and_rejects_foreign_origin(self):
+        from unittest.mock import patch
+        with patch.object(s, 'import_audio', return_value=('Test track.mp3', b'MP3-test')) as importer:
+            code, audio, headers = self.call('POST','/api/import/youtube',json.dumps({'url':'https://youtu.be/BaW_jenozKc'}))
+            self.assertEqual(code,200); self.assertEqual(audio,b'MP3-test')
+            self.assertEqual(json.loads(headers['X-Track-Name']), 'Test track.mp3')
+            self.assertEqual(headers['Cache-Control'],'no-store')
+            self.assertEqual(self.call('POST','/api/import/youtube',b'{}',origin='https://evil.example')[0],403)
+            self.assertEqual(importer.call_count,1)
+    def test_import_busy_and_invalid_payload(self):
+        self.assertEqual(self.call('POST','/api/import/youtube',b'[]')[0],400)
+        s.IMPORT_LOCK.acquire()
+        try: self.assertEqual(self.call('POST','/api/import/youtube',b'{}')[0],429)
+        finally: s.IMPORT_LOCK.release()
+
+class TransferTests(unittest.TestCase):
+    def test_partial_sends_and_buffer_pressure_preserve_exact_audio_bytes(self):
+        import errno
+        import io
+        from unittest.mock import patch
+        class Socket:
+            def __init__(self): self.output=bytearray(); self.calls=0
+            def send(self, data):
+                self.calls+=1
+                if self.calls in (1,4): raise OSError(errno.ENOBUFS, 'No buffer space')
+                count=min(len(data), 17000)
+                self.output.extend(data[:count]); return count
+        audio=b'abcd'*40000; connection=Socket()
+        with patch.object(s.time,'sleep'):
+            s.stream_audio(io.BytesIO(audio),connection)
+        self.assertEqual(bytes(connection.output),audio)
+    def test_disconnected_client_is_not_retried(self):
+        import io
+        from unittest.mock import Mock
+        connection=Mock();connection.send.side_effect=BrokenPipeError()
+        with self.assertRaises(BrokenPipeError): s.stream_audio(io.BytesIO(b'audio'),connection)
+        self.assertEqual(connection.send.call_count,1)

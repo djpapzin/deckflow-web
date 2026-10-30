@@ -19,3 +19,15 @@ test('local hosting and granted permission work automatically; denied/unsupporte
  await assert.rejects(connection({state:'unsupported'}).api.requireStemConnection(),/CONNECT MAC STEMS/);
  const {api}=connection({ready:false});await assert.rejects(api.connectMacStems(),/Start the DeckFlow/);await assert.rejects(api.requireStemConnection());
 });
+
+test('same-origin Mac view omits Safari-incompatible address-space hint and preserves request data',async()=>{
+ const {api,calls}=connection({port:'8787'});
+ const controller=new AbortController();
+ const body=new Blob(['track']);
+ await api.localStemFetch('/api/stems?quality=fast',{method:'POST',body,signal:controller.signal});
+ assert.equal(calls[0].url,'/api/stems?quality=fast');
+ assert.equal('targetAddressSpace' in calls[0].options,false);
+ assert.equal(calls[0].options.body,body);
+ assert.equal(calls[0].options.signal,controller.signal);
+ assert.equal(calls[0].options.method,'POST');
+});

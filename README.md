@@ -145,3 +145,19 @@ On `https://deckflow.djpapzin.com`, **CONNECT MAC STEMS** opens
 only from the production hostname and uses same-origin local stem requests.
 The `/dev/` view continues to use only the dev hostname. Start the local companion
 and connect before loading music. Cloud separation remains a future feature.
+
+### YouTube audio import (development)
+
+Each deck accepts a single HTTPS YouTube video link via **IMPORT MP3**. The local
+companion uses yt-dlp and FFmpeg to convert audio to a 192 kbps MP3, then loads it
+through the normal track loader (BPM detection and automatic Fast stems). It does
+not start playback. Import only audio you own or have permission to use.
+
+Install `yt-dlp[default]` in the companion's Python environment at
+`~/.local/share/deckflow-stems/venv`. FFmpeg uses the existing UVR bundle. Public
+static hosting cannot perform conversion alone: open the Mac-connected view for
+now. No Oracle deployment is included. Only one import runs at a time; videos are
+limited to 20 minutes/100 MB with a 10-minute timeout. No account cookies are used.
+Temporary downloads are removed after conversion, including failed imports; the
+usual stem cache still applies once the track loads. Restricted videos, live
+streams and YouTube bot checks can prevent an import.
