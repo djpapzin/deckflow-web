@@ -9,6 +9,7 @@ export type Action =
   | { type: 'SEEK'; norm: number }
   | { type: 'SYNC'; norm: number; tempo: number }
   | { type: 'FOLLOW'; tempo: number }
+  | { type: 'BEAT_LOOP'; position: number; beats: number; bpm: number }
   | { type: 'KEY_LOCK' }
   | { type: 'SET_VOLUME' | 'SET_FILTER' | 'SET_TEMPO'; value: number }
   | { type: 'SET_EQ'; band: EqBand; value: number }
@@ -60,6 +61,14 @@ export function reducer(s: DeckState, a: Action): DeckState {
     case 'SET_FILTER': return { ...s, filterCutoff: Math.max(-1, Math.min(1, a.value)) };
     case 'SET_TEMPO': return { ...s, tempo: Math.max(0.5, Math.min(1.5, a.value)) };
     case 'SET_CUE': return s.track ? { ...s, cueNorm: clamp01(a.position) } : s;
+    case 'BEAT_LOOP': {
+      if (!s.track || ![1,2,4,8,16,32].includes(a.beats) || !Number.isFinite(a.bpm) || a.bpm < 30 || a.bpm > 300) return s;
+      const length = a.beats * 60 / a.bpm / s.track.duration;
+      if (!Number.isFinite(length) || length <= 0 || length > 1) return s;
+      // Keep the full beat count near the end; never create a shortened loop.
+      const start = Math.min(clamp01(a.position), 1 - length);
+      return { ...rebase(s, start), loopIn:start, loopOut:start + length, loopEnabled:true };
+    }
     case 'LOOP_IN':
       return s.track ? { ...rebase(s, a.position), loopIn: clamp01(a.position), loopOut: null, loopEnabled: false } : s;
     case 'LOOP_OUT': {

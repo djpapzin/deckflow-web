@@ -122,45 +122,76 @@ site retain their separate deployments. Start this view before loading music.
 
 ## Roadmap
 
-### Oracle Cloud stem separation (planned)
+Status updated **31 October 2026**. “Live” means published to production;
+“Dev / testing” means available for feedback on dev but not yet promoted.
 
-Run a shared stem-preparation backend on Oracle Cloud so people can use DeckFlow
-without installing a local companion. Keep playback, cueing, scratching and mixing
-in the browser after the prepared stems have downloaded.
+### Live
 
-Before rollout:
-- Benchmark CPU hosting against the local service; evaluate GPU hosting if needed.
-- Add authentication, job queues, per-user processing limits and progress reporting.
-- Explain that cloud processing uploads songs; obtain the user's choice before upload.
-- Define private storage, caching, retention limits and automatic song/stem deletion.
-- Trial the service on dev, measure cost and separation quality, then review before production.
+Production: [deckflow.djpapzin.com](https://deckflow.djpapzin.com/).
 
-This is a future feature. Current releases still use each user's own local stem service;
-no shared cloud separation backend is deployed.
+- Two-deck browser mixing: BPM detection, Sync, continuous Beat Lock, pitch-preserving
+  tempo changes, EQ, channel volume and crossfader. Sync does not start playback.
+- Scratching, main cue, five hot cues, manual In/Out loops, Space play/pause and
+  moving waveforms. The existing layout is blue/red with a central mixer.
+- Mobile landscape layout, portrait rotation prompt and iPhone Safari audio fix.
+  DJ confirmed iPhone scratching, cues and crossfader; broader Android testing remains planned.
+- Oracle-hosted stems and YouTube imports: hosted users do not need the Mac companion.
+  Fast is the default; Better Quality requests an upgrade. Stem modes include Full Mix,
+  Instrumental, Acapella, Beat, Vocal Reprise and Instrumental Reprise.
+- Public YouTube audio converts to MP3 and loads before automatic stem preparation.
+  Import only audio you own or have permission to use. Restricted videos, session expiry
+  and YouTube verification can still prevent imports.
+- YouTube MP3 caching (256 MiB, six-hour expiry), separate import/deck-load and
+  split/stem-load timing labels, and guarded Oracle storage admission/cleanup.
+- Optional Mac-connected views: with the local companion running,
+  [local production](http://127.0.0.1:8787/live/) and
+  [local dev](http://127.0.0.1:8787/dev/) use local processing instead of Oracle.
+  The companion also supports local YouTube imports.
 
-### Connect production to your Mac
+Oracle is currently a limited tester backend, not a service sized for many simultaneous
+users. A recent full-song Fast run took about **21 minutes to split**, followed by
+roughly **74 seconds to transfer/load stems**. Download caching speeds up repeated
+imports; it does not speed up a first-time separation. Timings vary with load.
 
-On `https://deckflow.djpapzin.com`, **CONNECT MAC STEMS** opens
-`http://127.0.0.1:8787/live/`. This Mac-connected production view serves assets
-only from the production hostname and uses same-origin local stem requests.
-The `/dev/` view continues to use only the dev hostname. Start the local companion
-and connect before loading music. Cloud separation remains a future feature.
+### Dev / testing — not promoted to production
 
-### YouTube audio import (development)
+Preview: [dev.deckflow.djpapzin.com](https://dev.deckflow.djpapzin.com/).
+Pull request: [Mix Lab layout, beat loops and switchable timers](https://github.com/djpapzin/deckflow-web/pull/11).
 
-Each deck accepts a single HTTPS YouTube video link via **IMPORT MP3**. The local
-companion uses yt-dlp and FFmpeg to convert audio to a 192 kbps MP3, then loads it
-through the normal track loader (BPM detection and automatic Fast stems). It does
-not start playback. Import only audio you own or have permission to use.
+- Refined Mix Lab-inspired layout: tighter console, compact shared waveforms,
+  mirrored loop/cue panels beside the platters, and expandable import/connection details.
+- Instant **1, 2, 4, 8, 16 and 32 beat loops**, with active-button exit.
+  A detected or manually entered BPM is required; Beat Lock followers cannot set loops.
+- Click track or platter timers to toggle elapsed and remaining time, with keyboard
+  handling isolated from the Space transport shortcut.
+- Remember manually entered BPM and beat-grid offsets for the exact audio file
+  across refresh and loading that song again, including the demo. This stores bounded
+  browser-local metadata, not audio, and does not assign a made-up demo BPM.
+- Compact waveform cue labels fitted to the shorter canvases.
+- User-supplied [Mix Lab reference](docs/references/README.md) saved with the project,
+  outside the shipped website assets, for continuing layout feedback.
 
-Install `yt-dlp[default]` in the companion's Python environment at
-`~/.local/share/deckflow-stems/venv`. FFmpeg uses the existing UVR bundle. Public
-static hosting cannot perform conversion alone: open the Mac-connected view for
-now. No Oracle deployment is included. Only one import runs at a time; videos are
-limited to 20 minutes/100 MB with a 10-minute timeout. No account cookies are used.
-Temporary downloads are removed after conversion, including failed imports; the
-usual stem cache still applies once the track loads. Restricted videos, live
-streams and YouTube bot checks can prevent an import.
+Validation so far: DJ reported the app and loop controls working; the demo BPM reload
+issue was then fixed and verified on hosted dev. The functional update at `2dd7568` passed 75 frontend
+tests, TypeScript, build, dev deployment and Codex review. Continue user feedback and
+mobile checks before promotion. Merge/publication requires DJ’s explicit approval.
+
+### Planned
+
+- Finish matching the saved reference through DJ’s layout and control-feel feedback.
+- Promote the reviewed dev changes after testing and explicit approval.
+- Reduce first-time Oracle stem processing time through bounded CPU/model-loading
+  benchmarks; evaluate separate GPU hosting if needed. Preserve current stem quality
+  and avoid disrupting other VPS services; no GPU rollout is approved or implemented.
+- Improve progress estimates, loading diagnostics and failure recovery as testing
+  reveals gaps. Current timings and countdowns are estimates, not completion guarantees.
+- Broaden real-device Android and iPhone testing, especially loops, timers, audio,
+  scratching and mixing in landscape.
+- Before expanding beyond a small tester group, evaluate authentication, user/job
+  isolation, capacity, fair-use limits and operating costs. Existing queue/rate/storage
+  guards are live; this additional scaling work is not complete.
+
+## Oracle service operation
 
 ### Oracle tester backend
 

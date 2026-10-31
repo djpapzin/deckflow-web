@@ -1,12 +1,13 @@
 import { useRef } from 'react';
 import type { UseDeck } from '../useDeck';
 
-export default function JogWheel({ deck }: { deck: UseDeck }) {
+export default function JogWheel({ deck, showRemaining = false, onToggleTime }: { deck: UseDeck; showRemaining?: boolean; onToggleTime?: () => void }) {
   const gesture = useRef<{ angle: number; position: number; pointerId: number } | null>(null);
   const duration = deck.state.track?.duration ?? 0;
   const seconds = deck.position * duration;
-  const minutes = Math.floor(seconds / 60);
-  const displayTime = `${minutes.toString().padStart(2,'0')}:${(seconds % 60).toFixed(1).padStart(4,'0')}`;
+  const timerSeconds = showRemaining ? Math.max(0,duration-seconds) : seconds;
+  const minutes = Math.floor(timerSeconds / 60);
+  const displayTime = `${showRemaining ? '−' : ''}${minutes.toString().padStart(2,'0')}:${(timerSeconds % 60).toFixed(1).padStart(4,'0')}`;
   const angle = (e: React.PointerEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     return Math.atan2(e.clientY - r.top - r.height / 2, e.clientX - r.left - r.width / 2);
@@ -44,7 +45,8 @@ export default function JogWheel({ deck }: { deck: UseDeck }) {
     }}>
     <div className="jog-ticks" />
     <div className="vinyl" style={{ transform: `rotate(${seconds * 200}deg)` }}><span className="vinyl-line" /></div>
-    <div className="jog-label"><small>DECK {deck.state.id}</small><strong>{displayTime}</strong><b>{deck.grid ? (deck.grid.bpm * deck.state.tempo).toFixed(1) : '—'} <i>BPM</i></b><span>{deck.state.playing ? 'PLAYING' : duration ? 'READY' : 'LOAD TRACK'}</span></div>
+    <div className="jog-label"><small>DECK {deck.state.id}</small><button className="jog-time-toggle" aria-label={`Deck ${deck.state.id} platter time: ${showRemaining ? 'remaining' : 'elapsed'}. Click to toggle`}
+      onPointerDown={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} onClick={onToggleTime}>{displayTime}</button><b>{deck.grid ? (deck.grid.bpm * deck.state.tempo).toFixed(1) : '—'} <i>BPM</i></b><span>{deck.state.playing ? 'PLAYING' : duration ? 'READY' : 'LOAD TRACK'}</span></div>
     <span className="platter-marker" />
   </div>;
 }

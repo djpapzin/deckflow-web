@@ -38,7 +38,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
     if (cuePointer.current !== e.pointerId) return;
     cuePointer.current = null; deck.cueUp();
   };
-  const [utilityOpen, setUtilityOpen] = useState(() => typeof window === 'undefined' || !window.matchMedia('(max-width: 950px)').matches);
+  const [showRemaining, setShowRemaining] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState('');
@@ -131,6 +131,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         />
       </header>
 
+      <details className="import-drawer"><summary>YouTube import</summary>
       <form className="youtube-import" onSubmit={event => void importYoutube(event)}>
         <input type="url" aria-label={`YouTube link for ${label}`} placeholder="Paste YouTube video link"
           required value={youtubeUrl} disabled={loading} onChange={event => setYoutubeUrl(event.target.value)} />
@@ -138,13 +139,15 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         {loading && importStatus && <progress className="import-progress" aria-label={`${label} YouTube import in progress`} />}
         {importSummary && <small className="import-timing">{importSummary}</small>}
         <small role="status">{importStatus || `Import audio you own or have permission to use · up to ${CLOUD_STEMS ? 10 : 20} minutes`}</small>
-      </form>
+      </form></details>
       <div className="track-display">
         <div className="track-name" title={track?.name}>{track ? track.name : 'LOAD A TRACK TO BEGIN'}</div>
         <div className="track-stats">
           <div className="bpm-display"><strong>{deck.grid ? (deck.grid.bpm * deck.state.tempo).toFixed(1) : '—'}</strong><span>BPM</span></div>
-          <div className="track-time"><small>ELAPSED</small><strong>{track ? fmt(deck.position * track.duration) : '0:00'}</strong></div>
-          <div className="track-time remaining"><small>REMAIN</small><strong>−{track ? fmt((1 - deck.position) * track.duration) : '0:00'}</strong></div>
+          <button className="track-time timer-toggle" aria-label={`${label} time display: ${showRemaining ? 'remaining' : 'elapsed'}. Click to toggle`}
+            onKeyDown={e => e.stopPropagation()} onClick={() => setShowRemaining(value => !value)} title="Click to switch elapsed / remaining time">
+            <small>{showRemaining ? 'REMAIN' : 'ELAPSED'}</small><strong>{showRemaining ? '−' : ''}{track ? fmt((showRemaining ? 1-deck.position : deck.position) * track.duration) : '0:00'}</strong>
+          </button>
         </div>
         <span className="analysis-status">{syncLocked ? `SYNC LOCKED · FOLLOWING ${leader}` : deck.analysisStatus === 'analyzing' ? 'ANALYZING BPM…' :
           deck.analysisStatus === 'unknown' ? 'NO STEADY BEAT · SET BPM BELOW' :
@@ -158,7 +161,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
       </div>
 
       <div className="deck-workbench"><TempoControl deck={deck} locked={syncLocked} />
-        <details className="deck-utility" open={utilityOpen} onToggle={e => setUtilityOpen(e.currentTarget.open)}><summary className="utility-summary">Cue, loops & beat grid</summary>      <div className="cue-tools"><button className="btn ghost" onClick={deck.setCue} disabled={!track}>SET CUE</button>
+        <div className="deck-utility"><div className="utility-summary">LOOP / CUE</div>      <div className="cue-tools"><button className="btn ghost" onClick={deck.setCue} disabled={!track}>SET CUE</button>
         <span>{deck.state.cueNorm !== null && track ? `Cue ${fmt(deck.state.cueNorm * track.duration)}` : 'Choose a position, then set cue'}</span></div>
 
       <div className="loop-controls" role="group" aria-label={`${label} loop controls`}>
@@ -179,7 +182,19 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         </span>
       </div>
 
-      <details className="beat-tools" open><summary>BPM & BEAT GRID</summary><div className="beat-controls" role="group" aria-label={`${label} beatmatching`}>
+      <div className="beat-loop-bank" role="group" aria-label={`${label} automatic beat loops`}>
+        <span>LOOP · BEATS</span>
+        {[1,2,4,8,16,32].map(beats => {
+          const active = deck.state.loopEnabled && deck.grid && track && deck.state.loopIn !== null && deck.state.loopOut !== null &&
+            Math.abs((deck.state.loopOut-deck.state.loopIn)*track.duration*deck.grid.bpm/60-beats)<.01;
+          return <button key={beats} className={`btn ghost ${active ? 'active' : ''}`} aria-pressed={!!active}
+            aria-label={`${label} ${beats} beat loop`} disabled={!track || !deck.grid || syncLocked || beats*60/deck.grid.bpm>track.duration}
+            onKeyDown={e => e.stopPropagation()}
+            onClick={() => active ? deck.loopAction('TOGGLE_LOOP') : deck.beatLoop(beats)}>{beats}</button>;
+        })}
+      </div>
+
+      <details className="beat-tools"><summary>BPM & BEAT GRID</summary><div className="beat-controls" role="group" aria-label={`${label} beatmatching`}>
         <button className="btn ghost" disabled={!track || loading} onClick={deck.tapTempo}>Tap tempo</button>
         <label className="bpm-input">Track BPM
           <input type="number" aria-label={`${label} track BPM`} min={30} max={300} step={.1}
@@ -193,7 +208,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         <button className="btn ghost" disabled={!deck.grid} onClick={deck.alignBeat}>Set beat here</button>
       </div></details>
 
-</details><JogWheel deck={deck} /></div>
+</div><JogWheel deck={deck} showRemaining={showRemaining} onToggleTime={() => setShowRemaining(value => !value)} /></div>
       <div className="stem-controls" role="group" aria-label={`${label} stem controls`}>
         <span className="control-caption">STEMS</span>
         {STEM_MODES.map(mode => <button key={mode.id}

@@ -1618,3 +1618,87 @@ h1 {
 }
 .youtube-import .import-progress { flex:0 0 100%; width:100%; height:10px; accent-color:var(--accent); }
 .youtube-import .import-timing { flex:0 0 100%; color:#b3dcff; font-size:11px; }
+
+/* Mix Lab reference: compact hardware console above a full-width browser. */
+.mixlab-layout { max-width:1600px; padding:7px 8px 12px; background:#202122; }
+.mixlab-layout .topbar { min-height:28px; padding:4px 8px; border-radius:5px 5px 0 0; background:linear-gradient(#565658,#262628); box-shadow:inset 0 1px #90909366,0 2px 4px #000; }
+.mixlab-layout .console-info { font-size:10px; color:#a3a8ae; padding:4px 6px; background:#191a1c; }
+.mixlab-layout .console-info summary { cursor:pointer; }
+.mixlab-layout .sync-status { margin:0; padding:3px 6px; min-height:22px; font-size:10px; background:#151618; }
+.mixlab-layout .rhythm-display { margin:4px 0; border:2px solid #0a0b0d; border-radius:4px; background:#101216; box-shadow:inset 0 1px 5px #000,0 1px #616266; }
+.mixlab-layout .rhythm-lane { height:35px; }
+.mixlab-layout .rhythm-lane .btn { font-size:8px; padding:3px 5px; }
+.mixlab-layout .console-viewport { border-radius:4px; border:2px solid #090a0b; }
+.mixlab-layout .deck { background:linear-gradient(110deg,#303134,#48494b 48%,#292a2c); border-color:#62636644; padding:6px 8px; }
+.mixlab-layout .deck-head { margin-bottom:4px; }
+.mixlab-layout .import-drawer { font-size:9px; color:#a8b0b9; margin:3px 0 5px; }
+.mixlab-layout .import-drawer>summary { cursor:pointer; width:fit-content; padding:3px 8px; border:1px solid #111; border-radius:8px; background:linear-gradient(#4f5155,#222428); box-shadow:inset 0 1px #93979a55; }
+.mixlab-layout .import-drawer[open] .youtube-import { margin-top:6px; }
+.mixlab-layout .track-display { background:linear-gradient(#0b1019,#050911); border-radius:5px 5px 0 0; }
+.mixlab-layout .deck-B .track-display { background:linear-gradient(#210b10,#100609); }
+.mixlab-layout .waveform-wrap { margin-bottom:5px; height:35px; }
+.mixlab-layout .deck-workbench { min-height:160px; gap:7px; margin:3px 0; }
+.mixlab-layout .deck-utility { background:linear-gradient(#303134,#202123); box-shadow:inset 0 1px #81838655,0 1px #77787a44; }
+.mixlab-layout .jog-wheel { box-shadow:0 0 0 3px #08090b,0 0 0 5px #5b5c60,0 4px 10px #000; }
+.mixlab-layout .central-mixer { background:linear-gradient(90deg,#292a2d,#4e5052 50%,#292a2d); padding:6px 9px; border-inline:2px solid #090a0b; }
+.mixlab-layout .stem-controls { padding-top:5px; gap:4px; }
+.mixlab-layout .stem-controls small { font-size:8px; }
+.mixlab-layout .hot-cues { padding:5px 0; }
+.mixlab-layout .transport { gap:4px; padding-top:4px; }
+.mixlab-layout .transport .btn { border-radius:12px; background:linear-gradient(#777a7c,#36383b); box-shadow:inset 0 1px #b8b9ba55,0 1px 3px #000; }
+.mixlab-layout .transport .btn.play { color:var(--accent); }
+.mixlab-layout .track-browser { margin-top:5px; min-height:290px; }
+.mixlab-layout .browser-sidebar { background:linear-gradient(90deg,#272829,#1b1c1e); }
+.mixlab-layout .browser-toolbar { background:linear-gradient(#454648,#292a2c); }
+@media (max-width:950px) {
+  .mixlab-layout { padding:4px; }
+  .mixlab-layout .deck { padding:5px; }
+  .mixlab-layout .deck-workbench { min-height:140px; gap:5px; }
+}
+@media (max-width:950px) and (orientation:landscape) {
+  .mixlab-layout .rhythm-lane { height:28px; }
+  .mixlab-layout .deck-workbench { min-height:110px; }
+  .mixlab-layout .track-browser { min-height:220px; }
+}
+.mixlab-layout .rhythm-lane .waveform { height:100%; }
+@media (min-width:951px) and (pointer:fine) {
+  .mixlab-layout .deck-workbench { min-height:145px; grid-template-columns:40px minmax(80px,1fr) 145px; }
+  .mixlab-layout .deck-B .deck-workbench { grid-template-columns:145px minmax(80px,1fr) 40px; }
+  .mixlab-layout .jog-wheel { width:145px; }
+  .mixlab-layout .stem-controls { padding:4px; gap:3px; }
+  .mixlab-layout .stem-controls .btn { font-size:8px; padding:4px 6px; min-height:24px; }
+  .mixlab-layout .hot-cues { padding:3px 0; gap:4px; }
+  .mixlab-layout .hot-cues .btn { font-size:9px; padding:4px; min-height:28px; }
+  .mixlab-layout .hot-cues small { font-size:7px; margin-top:1px; }
+  .mixlab-layout .transport .btn { min-height:25px; padding:4px 7px; font-size:10px; }
+  .mixlab-layout .deck-controls, .mixlab-layout .eq-group { gap:3px; }
+  .mixlab-layout .central-mixer .knob { gap:1px; }
+  .mixlab-layout .central-mixer .knob-body { width:21px; height:21px; }
+  .mixlab-layout .browser-body { min-height:260px; }
+}
+@media (min-width:951px) and (pointer:fine) {
+  .mixlab-layout .tempo-control { gap:2px; }
+  .mixlab-layout .pitch-rail input { height:64px; }
+  .mixlab-layout .tempo-control .btn { min-height:16px; padding:2px 3px; }
+  .mixlab-layout .stem-controls>.control-caption { display:none; }
+  .mixlab-layout .stem-controls .btn { font-size:7px; padding:3px 5px; min-height:21px; }
+  .mixlab-layout .transport { grid-template-columns:1fr 1.2fr .8fr 1fr; }
+}
+.timer-toggle { border:0; background:none; color:inherit; padding:0; cursor:pointer; }
+.jog-time-toggle { border:0; padding:0; background:none; color:inherit; cursor:pointer; font:21px Consolas,monospace; letter-spacing:-1px; text-shadow:0 0 8px var(--accent); white-space:nowrap; }
+.timer-toggle:focus-visible,.jog-time-toggle:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.beat-loop-bank { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:3px; padding:6px 0; }
+.beat-loop-bank>span { grid-column:1/-1; font-size:8px; color:#aab3be; letter-spacing:1px; }
+.beat-loop-bank .btn { padding:5px 2px; font-size:11px; border-radius:8px; }
+.beat-loop-bank .btn.active { background:var(--deep); color:var(--accent); box-shadow:0 0 6px var(--glow); }
+@media(max-width:950px) { .beat-loop-bank .btn { min-height:44px; } .jog-time-toggle { font-size:16px; min-height:35px; } }
+.jog-time-toggle { pointer-events:auto; }
+.mixlab-layout .track-display .timer-toggle { display:flex; flex-direction:column; align-items:flex-end; }
+/* Reference loop bank sits in the side module, not across the track display. */
+.mixlab-layout .deck-utility .beat-loop-bank { padding:5px 0; }
+.mixlab-layout .deck-utility .beat-loop-bank .btn { min-width:0; padding:4px 1px; font-size:10px; }
+.mixlab-layout .utility-summary { color:#8d9baa; font-size:8px; padding:3px 0 6px; letter-spacing:1px; }
+@media(max-width:950px) {
+  .mixlab-layout .deck-utility { display:block; grid-column:1/-1; order:4; }
+  .mixlab-layout .deck-utility .beat-loop-bank .btn { min-height:44px; }
+}
