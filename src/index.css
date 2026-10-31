@@ -1616,3 +1616,4 @@ h1 {
   .hot-cues { order:6; }
   .stem-controls { order:7; }
 }
+.youtube-import .import-progress { flex:0 0 100%; width:100%; height:10px; accent-color:var(--accent); }

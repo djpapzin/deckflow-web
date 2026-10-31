@@ -69,7 +69,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
 
   const importYoutube = async (event: React.FormEvent) => {
     event.preventDefault();
-    setLoading(true); setError(null); setImportStatus('Importing audio…');
+    setLoading(true); setError(null); setImportStatus('Downloading from YouTube and converting to MP3…');
     try {
       // Safari needs audio unlocked while the submit gesture is still active.
       await ensureAudio();
@@ -78,6 +78,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         body: JSON.stringify({ url: youtubeUrl }), signal: AbortSignal.timeout(620000),
       });
       if (!response.ok) throw new Error((await response.json()).error || 'Import failed');
+      setImportStatus('Receiving MP3 audio…');
       const name = JSON.parse(response.headers.get('X-Track-Name') || '"YouTube track.mp3"');
       const file = new File([await response.blob()], name, { type: 'audio/mpeg' });
       setImportStatus('Loading deck…');
@@ -123,6 +124,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         <input type="url" aria-label={`YouTube link for ${label}`} placeholder="Paste YouTube video link"
           required value={youtubeUrl} disabled={loading} onChange={event => setYoutubeUrl(event.target.value)} />
         <button className="btn ghost" disabled={loading || !youtubeUrl.trim()}>IMPORT MP3</button>
+        {loading && importStatus && <progress className="import-progress" aria-label={`${label} YouTube import in progress`} />}
         <small role="status">{importStatus || `Import audio you own or have permission to use · up to ${CLOUD_STEMS ? 10 : 20} minutes`}</small>
       </form>
       <div className="track-display">
