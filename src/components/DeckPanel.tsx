@@ -43,17 +43,20 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
   const [error, setError] = useState<string | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [importStatus, setImportStatus] = useState('');
+  const [importSummary, setImportSummary] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadFile = async (file: File, demo = false) => {
-    setError(null);
+    setError(null); setImportSummary('');
     setLoading(true);
     try {
       await ensureAudio();
       await deck.load(file);
       onRemember(file, demo);
+      return true;
     } catch (err) {
       setError(String(err));
+      return false;
     } finally {
       setLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -69,20 +72,29 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
 
   const importYoutube = async (event: React.FormEvent) => {
     event.preventDefault();
-    setLoading(true); setError(null); setImportStatus('Importing audio…');
+    setImportSummary('');
+    setLoading(true); setError(null); setImportStatus('Downloading from YouTube and converting to MP3…');
     try {
       // Safari needs audio unlocked while the submit gesture is still active.
       await ensureAudio();
+      const started = performance.now();
       const response = await localStemFetch('/api/import/youtube', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: youtubeUrl }), signal: AbortSignal.timeout(620000),
       });
       if (!response.ok) throw new Error((await response.json()).error || 'Import failed');
+      setImportStatus('Receiving MP3 audio…');
       const name = JSON.parse(response.headers.get('X-Track-Name') || '"YouTube track.mp3"');
       const file = new File([await response.blob()], name, { type: 'audio/mpeg' });
+      const received = performance.now();
       setImportStatus('Loading deck…');
-      await loadFile(file);
-      setYoutubeUrl('');
+      if (await loadFile(file)) {
+        const imported = Number(response.headers.get('X-Import-Seconds'));
+        const seconds = response.headers.has('X-Import-Seconds') && Number.isFinite(imported) && imported >= 0 ? imported : (received-started)/1000;
+        const cached = response.headers.get('X-Import-Cache') === 'hit';
+        setImportSummary(`${cached ? 'Import cache' : 'Download + conversion'}: ${seconds.toFixed(1)}s · deck load: ${((performance.now()-received)/1000).toFixed(1)}s`);
+        setYoutubeUrl('');
+      }
     } catch (err) {
       setError(err instanceof TypeError ? 'Open the Mac-connected DeckFlow view and start the companion to import YouTube audio.' : String(err));
     } finally { setLoading(false); setImportStatus(''); }
@@ -123,6 +135,8 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         <input type="url" aria-label={`YouTube link for ${label}`} placeholder="Paste YouTube video link"
           required value={youtubeUrl} disabled={loading} onChange={event => setYoutubeUrl(event.target.value)} />
         <button className="btn ghost" disabled={loading || !youtubeUrl.trim()}>IMPORT MP3</button>
+        {loading && importStatus && <progress className="import-progress" aria-label={`${label} YouTube import in progress`} />}
+        {importSummary && <small className="import-timing">{importSummary}</small>}
         <small role="status">{importStatus || `Import audio you own or have permission to use · up to ${CLOUD_STEMS ? 10 : 20} minutes`}</small>
       </form>
       <div className="track-display">

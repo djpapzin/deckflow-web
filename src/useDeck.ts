@@ -33,9 +33,9 @@ export function useDeck(id: string, audioReady: boolean) {
     setStemsFailed(false);
     setStemStatus('Connecting to local separator…');
     try {
-      await prepareStems(file, rt, id, token, controller.signal, text => { if (loadGen.current === gen) setStemStatus(text); }, quality);
+      const timings = await prepareStems(file, rt, id, token, controller.signal, text => { if (loadGen.current === gen) setStemStatus(text); }, quality);
       if (loadGen.current !== gen || controller.signal.aborted) return;
-      setPreparedQuality(quality); setStemsReady(true); setStemStatus(`STEMS READY · ${quality === 'fast' ? 'Fast' : 'Best Quality'} · switch live`);
+      setPreparedQuality(quality); setStemsReady(true); setStemStatus(`STEMS READY · ${quality === 'fast' ? 'Fast' : 'Best Quality'} · switch live${timings ? ` · split ${timings.splitSeconds === null ? 'unknown' : timings.splitSeconds.toFixed(1)+'s'}${timings.reused ? ' (cached)' : ''} · stems loaded ${timings.stemLoadSeconds.toFixed(1)}s` : ''}`);
     } catch (error) { if (!controller.signal.aborted && loadGen.current === gen) { setStemsFailed(true); setStemStatus(error instanceof Error ? error.message : String(error)); } }
   }, [id]);
   useEffect(() => () => stemAbort.current?.abort(), []);

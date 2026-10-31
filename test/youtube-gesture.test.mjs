@@ -14,10 +14,10 @@ const compiled=ts.transpileModule('const handler = '+handler+';', {compilerOptio
 test('first YouTube import unlocks audio synchronously before starting conversion',async()=>{
  const events=[];let unlock;
  const ready=new Promise(resolve=>{unlock=resolve;});
- const run=new Function('ensureAudio','localStemFetch','setLoading','setError','setImportStatus','youtubeUrl','loadFile','setYoutubeUrl',compiled+'return handler;')(
+ const run=new Function('ensureAudio','localStemFetch','setLoading','setError','setImportStatus','youtubeUrl','loadFile','setYoutubeUrl','setImportSummary',compiled+'return handler;')(
   ()=>{events.push('audio');return ready;},
   async()=>{events.push('fetch');throw Error('end test at request');},
-  ()=>{},()=>{},()=>{},'https://youtu.be/aqz-KE-bpKQ',()=>{},()=>{});
+  ()=>{},()=>{},()=>{},'https://youtu.be/aqz-KE-bpKQ',()=>{},()=>{},()=>{});
  const pending=run({preventDefault(){}});
  assert.deepEqual(events,['audio']);
  unlock();await pending;
