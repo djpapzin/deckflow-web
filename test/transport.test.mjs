@@ -95,3 +95,18 @@ test('five hot cues set, jump/play, clear independently and reset on track load'
   assert.equal(reducer(s,{type:'HOT_CUE',index:5,position:0}),s);
   assert.deepEqual(reducer(s,{type:'LOAD',track:{duration:8}}).hotCues,Array(5).fill(null));
 });
+test('instant beat loops use source BPM, retain playback and preserve full length near the end', () => {
+  const original={...initial(),track:{duration:120},tempo:1.25};
+  for(const beats of [1,2,4,8,16,32]) {
+    const next=reducer(original,{type:'BEAT_LOOP',position:.25,beats,bpm:120});
+    assert.equal(next.loopEnabled,true); assert.equal(next.playing,true);
+    assert.equal(next.tempo,1.25); assert.equal(next.loopIn,.25);
+    assert.ok(Math.abs((next.loopOut-next.loopIn)*120-beats*.5)<1e-8);
+  }
+  const end=reducer(original,{type:'BEAT_LOOP',position:.999,beats:8,bpm:120});
+  assert.equal(end.loopOut,1); assert.ok(Math.abs((end.loopOut-end.loopIn)*120-4)<1e-8);
+  const paused=reducer({...original,playing:false},{type:'BEAT_LOOP',position:.3,beats:4,bpm:120});
+  assert.equal(paused.playing,false);
+  for(const action of [{beats:3,bpm:120},{beats:4,bpm:NaN},{beats:4,bpm:0}])
+    assert.equal(reducer(original,{type:'BEAT_LOOP',position:.2,...action}),original);
+});

@@ -188,6 +188,10 @@ export function useDeck(id: string, audioReady: boolean) {
   const loopAction = (type: 'LOOP_IN' | 'LOOP_OUT' | 'TOGGLE_LOOP' | 'CLEAR_LOOP') =>
     transport({ type, position: positionRef.current });
 
+  const beatLoop = (beats: number) => {
+    if (grid) transport({ type:'BEAT_LOOP', position:positionRef.current, beats, bpm:grid.bpm });
+  };
+
   const readPosition = () => state.track
     ? clamp01((getRuntime()?.players[id].position() ?? 0) / state.track.duration) : 0;
   const manualGrid = (bpm: number, offset = grid?.offset ?? 0) => {
@@ -221,7 +225,7 @@ export function useDeck(id: string, audioReady: boolean) {
   const syncTo = (norm: number, tempo: number) => transport({ type: 'SYNC', norm, tempo });
 
   return { state, position, level, stemStatus, stemsReady, stemsFailed, stemMode, preparedQuality, upgradeStems, retryStems, selectStems, load, togglePlay, seek, setVolume, setEq, setFilter,
-    setTempo, setCue, jumpCue, cueDown, cueUp, hotCue, scratchDown, scratchMove, scratchUp, loopAction, grid, analysisStatus, manualGrid, tapTempo,
+    setTempo, setCue, jumpCue, cueDown, cueUp, hotCue, scratchDown, scratchMove, scratchUp, loopAction, beatLoop, grid, analysisStatus, manualGrid, tapTempo,
     alignBeat, syncTo, readPosition, follow, toggleKeyLock };
 }
 export type UseDeck = ReturnType<typeof useDeck>;
