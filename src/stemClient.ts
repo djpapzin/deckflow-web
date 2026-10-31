@@ -21,14 +21,19 @@ export async function prepareStems(file: File, rt: AudioRuntime, id: string, tok
   } catch { throw new Error(CLOUD_STEMS ? 'Cloud separator is temporarily unavailable. Please retry shortly.' : 'Start the DeckFlow stem service on your Mac. If this browser blocks the connection, open http://127.0.0.1:8787.'); }
   finally { clearTimeout(probeTimer); signal.removeEventListener('abort', cancelProbe); }
   status(CLOUD_STEMS ? 'Uploading to cloud separator…' : 'Sending to local separator…');
-  const { id: job } = await (await request(`/api/stems?quality=${quality}`, { method:'POST', headers:{'Content-Type':'application/octet-stream'}, body:file })).json();
+  const { id: job, cached } = await (await request(`/api/stems?quality=${quality}`, { method:'POST', headers:{'Content-Type':'application/octet-stream'}, body:file })).json();
   const duration = rt.players[id].duration;
   const estimate = CLOUD_STEMS ? Math.max(estimateStemSeconds(duration, quality), duration * (quality === 'fast' ? 5 : 10) + 20) : estimateStemSeconds(duration, quality);
   let processingStarted: number | undefined;
+  let splitSeconds: number | null = null;
+  const reused = cached === true;
   for (;;) {
     signal.throwIfAborted();
-    const { status: state } = await (await request(`/api/stems/${job}`)).json();
-    if (state === 'ready') break;
+    const { status: state, processing } = await (await request(`/api/stems/${job}`)).json();
+    if (state === 'ready') {
+      splitSeconds = Number.isFinite(processing?.seconds) && processing.seconds >= 0 ? processing.seconds : processingStarted === undefined ? null : (performance.now()-processingStarted)/1000;
+      break;
+    }
     if (state === 'error' || state === 'missing') throw new Error('Separation failed. Retry or check the local service log.');
     if (state === 'queued') {
       status('Queued · waiting for the other track…');
@@ -43,6 +48,7 @@ export async function prepareStems(file: File, rt: AudioRuntime, id: string, tok
     });
   }
   status('Loading aligned stems…');
+  const loadingStarted = performance.now();
   // Transfer/decode one full-song stem at a time to avoid exhausting Safari
   // and macOS network buffers with four large WAV responses at once.
   const buffers: AudioBuffer[] = [];
@@ -55,4 +61,5 @@ export async function prepareStems(file: File, rt: AudioRuntime, id: string, tok
   await rt.stems[id].load(buffers,token);
   signal.throwIfAborted();
   rt.scratch[id].loadStems(buffers);
+  return { splitSeconds, reused, stemLoadSeconds:(performance.now()-loadingStarted)/1000 };
 }

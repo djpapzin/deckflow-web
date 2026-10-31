@@ -31,7 +31,7 @@ def video_url(value):
         raise ValueError('Paste a single YouTube video link, not a playlist or channel.')
     return 'https://www.youtube.com/watch?v=' + video
 
-def import_audio(url, ffmpeg_dir, python=sys.executable, max_duration=1200):
+def import_audio(url, ffmpeg_dir, python=sys.executable, max_duration=1200, details=None):
     url = video_url(url)
     ffmpeg = Path(ffmpeg_dir) / 'ffmpeg'
     if not ffmpeg.exists() and not shutil.which('ffmpeg'):
@@ -54,10 +54,10 @@ def import_audio(url, ffmpeg_dir, python=sys.executable, max_duration=1200):
         if session:
             try:
                 source = Path(session)
-                details = source.lstat()
-                if (not source.is_absolute() or not stat.S_ISREG(details.st_mode)
-                        or details.st_mode & 0o077 or details.st_uid not in (0, os.getuid())
-                        or not 0 < details.st_size <= 1024 * 1024):
+                session_stat = source.lstat()
+                if (not source.is_absolute() or not stat.S_ISREG(session_stat.st_mode)
+                        or session_stat.st_mode & 0o077 or session_stat.st_uid not in (0, os.getuid())
+                        or not 0 < session_stat.st_size <= 1024 * 1024):
                     raise ValueError('Unsafe session file')
                 # yt-dlp rewrites its cookie jar. Give each import a disposable copy,
                 # keeping the protected source read-only and out of response metadata.
@@ -86,5 +86,7 @@ def import_audio(url, ffmpeg_dir, python=sys.executable, max_duration=1200):
         metadata = json.loads((Path(directory) / 'track.info.json').read_text())
         if session and (metadata.get('availability') != 'public' or metadata.get('age_limit') != 0):
             raise ValueError('Shared YouTube imports support public, non-age-restricted videos only.')
+        if details is not None:
+            details.update({key:metadata.get(key) for key in ('availability','age_limit','duration')})
         name = re.sub(r'[^\w .()-]', '_', metadata.get('title', 'YouTube track'))[:120] + '.mp3'
         return name, audio.read_bytes()

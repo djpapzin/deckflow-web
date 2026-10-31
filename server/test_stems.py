@@ -31,11 +31,27 @@ class ApiTests(unittest.TestCase):
     def test_cached_track_reuses_stems_and_requires_valid_id(self):
         data=b'test audio';key=hashlib.sha256(s.CACHE_VERSION.encode()+data).hexdigest();folder=s.DATA/key;folder.mkdir()
         (folder/'complete.json').write_text('{}');(folder/'vocals.wav').write_bytes(b'RIFF-test')
-        code,body,_=self.call('POST','/api/stems',data);self.assertEqual(code,202);self.assertEqual(json.loads(body)['id'],key)
+        code,body,_=self.call('POST','/api/stems',data);self.assertEqual(code,202);self.assertEqual(json.loads(body)['id'],key);self.assertTrue(json.loads(body)['cached'])
+        (folder/'processing.json').write_text(json.dumps({'seconds':42.5}))
+        self.assertEqual(json.loads(self.call('GET','/api/stems/'+key)[1])['processing']['seconds'],42.5)
         self.assertEqual(json.loads(self.call('GET','/api/stems/'+key)[1])['status'],'ready')
         self.assertEqual(self.call('GET','/api/stems/'+key+'/vocals.wav')[1],b'RIFF-test')
         self.assertEqual(self.call('POST','/api/stems',b'')[0],413)
         self.assertEqual(self.call('GET','/api/stems/not-an-id')[0],404)
+    def test_youtube_cache_normalizes_links_and_exposes_timings(self):
+        from unittest.mock import patch
+        def download(url, *args, details=None):
+            details.update(availability='public',age_limit=0,duration=120)
+            return 'song.mp3',b'mp3-audio'
+        with patch.object(s,'import_audio',side_effect=download) as fetch:
+            for url,expected in [('https://youtu.be/9B3vAyeF6lU?si=test','miss'),('https://www.youtube.com/watch?v=9B3vAyeF6lU','hit')]:
+                code,body,headers=self.call('POST','/api/import/youtube',json.dumps({'url':url}))
+                self.assertEqual(code,200);self.assertEqual(body,b'mp3-audio')
+                self.assertEqual(headers['X-Import-Cache'],expected)
+                self.assertGreaterEqual(float(headers['X-Import-Seconds']),0)
+                self.assertIn('X-Import-Seconds',headers['Access-Control-Expose-Headers'])
+            self.assertEqual(fetch.call_count,1)
+
     def test_quality_has_separate_cache_and_rejects_unknown_values(self):
         data=b'quality test'
         for quality, suffix in [('best',''),('fast',':fast')]:

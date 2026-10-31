@@ -6,7 +6,8 @@ import time
 import tempfile
 from cloud_limits import CloudLimits, DEFAULT_RESERVATION, stem_storage_budget
 import hashlib
-from youtube_import import IMPORT_LOCK, import_audio
+from youtube_import import IMPORT_LOCK, import_audio, video_url
+from import_cache import ImportCache
 import json
 import os
 from pathlib import Path
@@ -144,6 +145,7 @@ class Handler(SimpleHTTPRequestHandler):
         version = CACHE_VERSION if quality == 'best' else CACHE_VERSION + ':fast'
         key = hashlib.sha256(version.encode()+data).hexdigest(); folder = DATA/key
         with LOCK:
+            cached = (folder/'complete.json').exists()
             if not (folder/'complete.json').exists() and JOBS.get(key) not in ('queued','processing'):
                 if sum(status in ('queued','processing') for status in JOBS.values()) >= (2 if CLOUD else 8):
                     return self.reply(429, {'error':'Queue full; try again shortly'})
@@ -166,20 +168,37 @@ class Handler(SimpleHTTPRequestHandler):
                 folder.mkdir(parents=True, exist_ok=True); (folder/'input.audio').write_bytes(data)
                 if CLOUD: RESERVATIONS[key] = budget
                 JOBS[key] = 'queued'; POOL.submit(run_job,key,quality)
-        return self.reply(202, {'id':key})
+        return self.reply(202, {'id':key, 'cached':cached})
     def youtube_import(self):
         if not allowed(self.request_origin()): return self.reply(403, {'error':'Origin not allowed'})
         if CLOUD and not LIMITS.allow(self.headers.get('CF-Connecting-IP', self.client_address[0])):
             return self.reply(429, {'error':'Tester limit reached. Try again in an hour.'})
         try:
-            if CLOUD:
-                with LOCK: LIMITS.reserve(active_reservations())
             length = int(self.headers.get('Content-Length', '0'))
             if not 0 < length <= 4096: return self.reply(413, {'error':'Invalid link request'})
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict): raise ValueError('Invalid link request')
             if not IMPORT_LOCK.acquire(blocking=False): return self.reply(429, {'error':'Another import is running. Try again shortly.'})
-            try: name, audio = import_audio(payload.get('url'), FFMPEG, ENGINE_PYTHON, 600 if CLOUD else 1200)
+            try:
+                started=time.perf_counter()
+                url=video_url(payload.get('url'));maximum=600 if CLOUD else 1200
+                cache=ImportCache(DATA/'youtube-imports')
+                try: cached=cache.get(url,maximum)
+                except OSError: cached=None
+                if cached:
+                    name,audio=cached;cache_hit=True
+                else:
+                    if CLOUD:
+                        try:
+                            with LOCK: LIMITS.reserve(active_reservations())
+                        except ValueError as error: return self.reply(507, {'error':str(error)})
+                    details={}
+                    name,audio=import_audio(url, FFMPEG, ENGINE_PYTHON, maximum, details=details)
+                    # An optional cache write must not break a successful import.
+                    try: cache.put(url,maximum,name,audio,details)
+                    except OSError: pass
+                    cache_hit=False
+                import_seconds=time.perf_counter()-started
             finally: IMPORT_LOCK.release()
         except (ValueError, RuntimeError) as error:
             return self.reply(400, {'error':str(error)})
@@ -191,7 +210,9 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header('Content-Type','audio/mpeg')
         self.send_header('Content-Length',str(len(audio)))
         self.send_header('X-Track-Name',json.dumps(name, ensure_ascii=True))
-        self.send_header('Access-Control-Expose-Headers','X-Track-Name')
+        self.send_header('X-Import-Seconds',f'{import_seconds:.3f}')
+        self.send_header('X-Import-Cache','hit' if cache_hit else 'miss')
+        self.send_header('Access-Control-Expose-Headers','X-Track-Name, X-Import-Seconds, X-Import-Cache')
         self.send_header('Cache-Control','no-store')
         self.end_headers()
         try: stream_audio(io.BytesIO(audio), self.connection)
@@ -240,13 +261,20 @@ class Handler(SimpleHTTPRequestHandler):
                     self.close_connection = True
                 return
             with LOCK: status = 'ready' if ready else JOBS.get(key,'missing')
-            return self.reply(200, {'status':status})
+            result={'status':status}
+            if ready:
+                try: result['processing']=json.loads((folder/'processing.json').read_text())
+                except (OSError,ValueError): pass
+            return self.reply(200, result)
         return super().do_GET()
     def log_message(self, format, *args): pass
 
 def expire_cloud_cache():
     while True:
         time.sleep(300)
+        if IMPORT_LOCK.acquire(blocking=False):
+            try: ImportCache(DATA/'youtube-imports').prune()
+            finally: IMPORT_LOCK.release()
         with LOCK:
             try: LIMITS.reserve(active_reservations(), reserve_bytes=0)
             except ValueError: pass
