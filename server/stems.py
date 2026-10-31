@@ -214,8 +214,9 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header('X-Import-Cache','hit' if cache_hit else 'miss')
         self.send_header('Access-Control-Expose-Headers','X-Track-Name, X-Import-Seconds, X-Import-Cache')
         self.send_header('Cache-Control','no-store')
-        self.end_headers()
-        try: stream_audio(io.BytesIO(audio), self.connection)
+        try:
+            self.end_headers()
+            stream_audio(io.BytesIO(audio), self.connection)
         except (OSError, ConnectionError): self.close_connection = True
     def do_GET(self):
         if self.headers.get('Host') not in HOSTS: return self.reply(403, {'error':'Host not allowed'})
@@ -274,6 +275,7 @@ def expire_cloud_cache():
         time.sleep(300)
         if IMPORT_LOCK.acquire(blocking=False):
             try: ImportCache(DATA/'youtube-imports').prune()
+            except OSError: pass  # Retry next cycle; keep storage maintenance alive.
             finally: IMPORT_LOCK.release()
         with LOCK:
             try: LIMITS.reserve(active_reservations(), reserve_bytes=0)

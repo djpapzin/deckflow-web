@@ -218,3 +218,26 @@ class CloudAdmissionTests(unittest.TestCase):
                     self.assertEqual(s.JOBS,{})
                     pool.submit.assert_not_called()
         finally: api.tearDown()
+
+class ImportFailureRecoveryTests(unittest.TestCase):
+    def test_cleanup_error_does_not_stop_storage_maintenance(self):
+        from unittest.mock import patch
+        with patch.object(s.time,'sleep',side_effect=[None,StopIteration]), patch.object(s.ImportCache,'prune',side_effect=OSError('disk temporarily unavailable')), patch.object(s,'LIMITS') as limits:
+            with self.assertRaises(StopIteration): s.expire_cloud_cache()
+            limits.reserve.assert_called_once()
+            self.assertTrue(s.IMPORT_LOCK.acquire(blocking=False))
+            s.IMPORT_LOCK.release()
+
+    def test_browser_disconnect_during_response_headers_is_handled(self):
+        from unittest.mock import Mock, patch
+        import io
+        handler=Mock()
+        payload=json.dumps({'url':'https://youtu.be/9B3vAyeF6lU'}).encode()
+        handler.headers={'Content-Length':str(len(payload))}
+        handler.rfile=io.BytesIO(payload)
+        handler.request_origin.return_value='http://127.0.0.1:8787'
+        handler.end_headers.side_effect=BrokenPipeError()
+        with patch.object(s,'CLOUD',False), patch.object(s.ImportCache,'get',return_value=('song.mp3',b'audio')):
+            s.Handler.youtube_import(handler)
+        self.assertTrue(handler.close_connection)
+        handler.reply.assert_not_called()
