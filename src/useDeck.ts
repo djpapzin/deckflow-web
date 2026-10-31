@@ -5,6 +5,7 @@ import { decodeTrack, publishTrack } from './track';
 import { initialDeckState, METER_EVENT_SUFFIX } from './deck';
 import { reducer, clamp01, type EqBand, type Action } from './transport';
 import type { BeatGrid } from './bpmAnalysis';
+import { beatGridKey, readBeatGrid, saveBeatGrid } from './savedBeatGrid';
 import type { StemMode } from './stemModes';
 import { prepareStems } from './stemClient';
 import type { StemQuality } from './stemProgress';
@@ -46,6 +47,7 @@ export function useDeck(id: string, audioReady: boolean) {
   const [analysisStatus, setAnalysisStatus] = useState<'idle' | 'analyzing' | 'ready' | 'manual' | 'unknown'>('idle');
   const workerRef = useRef<Worker | null>(null);
   const taps = useRef<number[]>([]);
+  const manualGridKey = useRef<string | null>(null);
   useEffect(() => () => workerRef.current?.terminate(), []);
 
   const showPosition = useCallback((norm: number) => {
@@ -98,7 +100,7 @@ export function useDeck(id: string, audioReady: boolean) {
     stemAbort.current?.abort();
     setStemsFailed(false); setStemsReady(false); setStemMode('full');
     setStemStatus('Waiting for track to load…');
-    const decoded = await decodeTrack(rt, file);
+    const [decoded, fileKey] = await Promise.all([decodeTrack(rt, file), beatGridKey(file)]);
     if (gen !== loadGen.current) return;
     // Each successful load gets distinct VFS paths, preserving an old playing deck
     // until the new track is fully published and committed to state.
@@ -109,11 +111,15 @@ export function useDeck(id: string, audioReady: boolean) {
     ignoreSnapshotsUntil.current = performance.now() + 120;
     dispatch({ type: 'LOAD', track });
     lastFile.current = file;
+    manualGridKey.current = fileKey;
     void prepare(file, gen);
     setGrid(null);
     setAnalysisStatus('analyzing');
     taps.current = [];
     workerRef.current?.terminate();
+    workerRef.current = null;
+    const savedGrid = readBeatGrid(fileKey, track.duration);
+    if (savedGrid) { setGrid(savedGrid); setAnalysisStatus('manual'); return; }
     try {
       const worker = new Worker(new URL('./bpmWorker.ts', import.meta.url), { type: 'module' });
       workerRef.current = worker;
@@ -198,7 +204,9 @@ export function useDeck(id: string, audioReady: boolean) {
     if (!state.track || !Number.isFinite(bpm) || bpm < 30 || bpm > 300) return;
     workerRef.current?.terminate();
     workerRef.current = null;
-    setGrid({ bpm: Math.round(bpm * 10) / 10, offset, confidence: 1 });
+    const next = { bpm: Math.round(bpm * 10) / 10, offset, confidence: 1 };
+    setGrid(next);
+    saveBeatGrid(manualGridKey.current, next);
     setAnalysisStatus('manual');
   };
   const tapTempo = () => {
