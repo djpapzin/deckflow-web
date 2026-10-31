@@ -29,7 +29,7 @@ test('actual platter handlers scratch in both directions and release once, ignor
   handlers.onPointerCancel(e(100,50));handlers.onLostPointerCapture(e(100,50));assert.equal(releases,1);
 });
 
-const {waveformView}=await import(`data:text/javascript;base64,${Buffer.from(compile('../src/waveformView.ts')).toString('base64')}`);
+const {waveformView,markerLabelLayout}=await import(`data:text/javascript;base64,${Buffer.from(compile('../src/waveformView.ts')).toString('base64')}`);
 test('moving waveform stays centered from beginning to end and overview stays within bounds',()=>{
   for(const position of [0,.01,.5,.99,1]) {
     const {start,win}=waveformView(6000,.08,position,true);
@@ -99,4 +99,18 @@ test('touch EQ drag captures one finger, cancels cleanly, and keeps master preci
  control.onPointerDown(event(3,100));control.onLostPointerCapture(event(3,100));
  control.onPointerMove(event(3,0));assert.equal(values.length,count);
  control.onPointerDown(event(4,100,2));control.onPointerMove(event(4,0));assert.equal(values.length,count);
+});
+
+test('timer keyboard handling prevents Space reaching the transport shortcut',()=>{
+ const deck={state:{id:'A',track:{duration:45},hotCues:Array(5).fill(null),cueNorm:0},stemMode:'full',stemStatus:'',position:0};
+ const timer=buttons(panel(deck)).find(b=>b.className?.includes('timer-toggle'));
+ let stopped=false;timer.onKeyDown({key:' ',stopPropagation(){stopped=true;}});
+ assert.equal(stopped,true);
+});
+test('cue and loop label rows fit compact desktop and landscape waveform heights',()=>{
+ for(const height of [28,35,48,64]) for(const row of [0,1]) {
+  const badge=markerLabelLayout(height,row);
+  assert.ok(badge.top>=0);assert.ok(badge.top+badge.height<=height);
+  assert.ok(badge.baseline<height);assert.ok(badge.baseline>badge.top);
+ }
 });

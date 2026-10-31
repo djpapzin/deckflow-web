@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TrackPeaks } from '../track';
 import type { BeatGrid } from '../bpmAnalysis';
-import { waveformView } from '../waveformView';
+import { waveformView, markerLabelLayout } from '../waveformView';
 
 interface Props {
   peaks: TrackPeaks | null;
@@ -156,13 +156,14 @@ export default function Waveform({ peaks, position, onSeek, cueNorm, loopIn, loo
       ctx.strokeStyle = color;
       ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cssH); ctx.stroke();
-      ctx.font = 'bold 11px system-ui';
+      const badge = markerLabelLayout(cssH, row);
+      ctx.font = `bold ${badge.fontSize}px system-ui`;
       const width = ctx.measureText(text).width + 10;
       const left = Math.min(cssW - width, Math.max(0, x));
       ctx.fillStyle = color;
-      ctx.fillRect(left, 5 + row * 21, width, 18);
+      ctx.fillRect(left, badge.top, width, badge.height);
       ctx.fillStyle = '#11131a';
-      ctx.fillText(text, left + 5, 18 + row * 21);
+      ctx.fillText(text, left + 5, badge.baseline);
     };
     marker(loopIn, 'IN', '#5ce7b4', 0);
     marker(loopOut, 'OUT', '#5ce7b4', 0);

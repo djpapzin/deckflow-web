@@ -145,7 +145,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         <div className="track-stats">
           <div className="bpm-display"><strong>{deck.grid ? (deck.grid.bpm * deck.state.tempo).toFixed(1) : '—'}</strong><span>BPM</span></div>
           <button className="track-time timer-toggle" aria-label={`${label} time display: ${showRemaining ? 'remaining' : 'elapsed'}. Click to toggle`}
-            onClick={() => setShowRemaining(value => !value)} title="Click to switch elapsed / remaining time">
+            onKeyDown={e => e.stopPropagation()} onClick={() => setShowRemaining(value => !value)} title="Click to switch elapsed / remaining time">
             <small>{showRemaining ? 'REMAIN' : 'ELAPSED'}</small><strong>{showRemaining ? '−' : ''}{track ? fmt((showRemaining ? 1-deck.position : deck.position) * track.duration) : '0:00'}</strong>
           </button>
         </div>
