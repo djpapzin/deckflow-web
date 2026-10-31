@@ -38,7 +38,6 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
     if (cuePointer.current !== e.pointerId) return;
     cuePointer.current = null; deck.cueUp();
   };
-  const [utilityOpen, setUtilityOpen] = useState(() => typeof window === 'undefined' || !window.matchMedia('(max-width: 950px)').matches);
   const [showRemaining, setShowRemaining] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,19 +160,8 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
           grid={deck.grid} duration={track?.duration ?? 0} color={deck.state.id === 'A' ? '#36a9ff' : '#ff5265'} />
       </div>
 
-      <div className="beat-loop-bank" role="group" aria-label={`${label} automatic beat loops`}>
-        <span>LOOP · BEATS</span>
-        {[1,2,4,8,16,32].map(beats => {
-          const active = deck.state.loopEnabled && deck.grid && track && deck.state.loopIn !== null && deck.state.loopOut !== null &&
-            Math.abs((deck.state.loopOut-deck.state.loopIn)*track.duration*deck.grid.bpm/60-beats)<.01;
-          return <button key={beats} className={`btn ghost ${active ? 'active' : ''}`} aria-pressed={!!active}
-            aria-label={`${label} ${beats} beat loop`} disabled={!track || !deck.grid || syncLocked || beats*60/deck.grid.bpm>track.duration}
-            onClick={() => active ? deck.loopAction('TOGGLE_LOOP') : deck.beatLoop(beats)}>{beats}</button>;
-        })}
-      </div>
-
       <div className="deck-workbench"><TempoControl deck={deck} locked={syncLocked} />
-        <details className="deck-utility" open={utilityOpen} onToggle={e => setUtilityOpen(e.currentTarget.open)}><summary className="utility-summary">Cue, loops & beat grid</summary>      <div className="cue-tools"><button className="btn ghost" onClick={deck.setCue} disabled={!track}>SET CUE</button>
+        <div className="deck-utility"><div className="utility-summary">LOOP / CUE</div>      <div className="cue-tools"><button className="btn ghost" onClick={deck.setCue} disabled={!track}>SET CUE</button>
         <span>{deck.state.cueNorm !== null && track ? `Cue ${fmt(deck.state.cueNorm * track.duration)}` : 'Choose a position, then set cue'}</span></div>
 
       <div className="loop-controls" role="group" aria-label={`${label} loop controls`}>
@@ -194,6 +182,17 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         </span>
       </div>
 
+      <div className="beat-loop-bank" role="group" aria-label={`${label} automatic beat loops`}>
+        <span>LOOP · BEATS</span>
+        {[1,2,4,8,16,32].map(beats => {
+          const active = deck.state.loopEnabled && deck.grid && track && deck.state.loopIn !== null && deck.state.loopOut !== null &&
+            Math.abs((deck.state.loopOut-deck.state.loopIn)*track.duration*deck.grid.bpm/60-beats)<.01;
+          return <button key={beats} className={`btn ghost ${active ? 'active' : ''}`} aria-pressed={!!active}
+            aria-label={`${label} ${beats} beat loop`} disabled={!track || !deck.grid || syncLocked || beats*60/deck.grid.bpm>track.duration}
+            onClick={() => active ? deck.loopAction('TOGGLE_LOOP') : deck.beatLoop(beats)}>{beats}</button>;
+        })}
+      </div>
+
       <details className="beat-tools"><summary>BPM & BEAT GRID</summary><div className="beat-controls" role="group" aria-label={`${label} beatmatching`}>
         <button className="btn ghost" disabled={!track || loading} onClick={deck.tapTempo}>Tap tempo</button>
         <label className="bpm-input">Track BPM
@@ -208,7 +207,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         <button className="btn ghost" disabled={!deck.grid} onClick={deck.alignBeat}>Set beat here</button>
       </div></details>
 
-</details><JogWheel deck={deck} showRemaining={showRemaining} onToggleTime={() => setShowRemaining(value => !value)} /></div>
+</div><JogWheel deck={deck} showRemaining={showRemaining} onToggleTime={() => setShowRemaining(value => !value)} /></div>
       <div className="stem-controls" role="group" aria-label={`${label} stem controls`}>
         <span className="control-caption">STEMS</span>
         {STEM_MODES.map(mode => <button key={mode.id}

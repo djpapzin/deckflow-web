@@ -1694,3 +1694,11 @@ h1 {
 @media(max-width:950px) { .beat-loop-bank .btn { min-height:44px; } .jog-time-toggle { font-size:16px; min-height:35px; } }
 .jog-time-toggle { pointer-events:auto; }
 .mixlab-layout .track-display .timer-toggle { display:flex; flex-direction:column; align-items:flex-end; }
+/* Reference loop bank sits in the side module, not across the track display. */
+.mixlab-layout .deck-utility .beat-loop-bank { padding:5px 0; }
+.mixlab-layout .deck-utility .beat-loop-bank .btn { min-width:0; padding:4px 1px; font-size:10px; }
+.mixlab-layout .utility-summary { color:#8d9baa; font-size:8px; padding:3px 0 6px; letter-spacing:1px; }
+@media(max-width:950px) {
+  .mixlab-layout .deck-utility { display:block; grid-column:1/-1; order:4; }
+  .mixlab-layout .deck-utility .beat-loop-bank .btn { min-height:44px; }
+}
