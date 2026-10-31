@@ -161,9 +161,14 @@ class Handler(SimpleHTTPRequestHandler):
                                 duration=float(subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','default=noprint_wrappers=1:nokey=1',probe.name],capture_output=True,text=True,check=True,timeout=20).stdout)
                                 if not 0 < duration <= 600: raise ValueError('Invalid duration')
                             except Exception:
-                                return self.reply(400, {'error':'Cloud testing supports valid audio under 10 minutes.'})
-                            budget=stem_storage_budget(duration,length)
-                            LIMITS.reserve(active_reservations(), reserve_bytes=budget-length)
+                                duration=None
+                        # Close/delete the probe before responding or reserving
+                        # outputs. Clients must never observe a rejected upload
+                        # while its temporary input still consumes storage.
+                        if duration is None:
+                            return self.reply(400, {'error':'Cloud testing supports valid audio under 10 minutes.'})
+                        budget=stem_storage_budget(duration,length)
+                        LIMITS.reserve(active_reservations(), reserve_bytes=budget)
                     except ValueError as error: return self.reply(507, {'error':str(error)})
                 folder.mkdir(parents=True, exist_ok=True); (folder/'input.audio').write_bytes(data)
                 if CLOUD: RESERVATIONS[key] = budget

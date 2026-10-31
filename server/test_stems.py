@@ -241,3 +241,19 @@ class ImportFailureRecoveryTests(unittest.TestCase):
             s.Handler.youtube_import(handler)
         self.assertTrue(handler.close_connection)
         handler.reply.assert_not_called()
+
+class ProbeResponseOrderingTests(unittest.TestCase):
+    def test_invalid_probe_is_removed_before_rejection_is_sent(self):
+        from unittest.mock import patch, Mock
+        from cloud_limits import CloudLimits
+        api=ApiTests();api.setUp()
+        observed=[]
+        original=s.Handler.reply
+        def reply(handler,status,value):
+            if status==400: observed.append(list(s.DATA.glob('upload-*')))
+            return original(handler,status,value)
+        try:
+            with patch.object(s,'CLOUD',True), patch.object(s,'JOBS',{}), patch.object(s,'LIMITS',CloudLimits(s.DATA,min_free=0)), patch.object(s.subprocess,'run',return_value=Mock(stdout='nan')), patch.object(s.Handler,'reply',reply):
+                self.assertEqual(api.call('POST','/api/stems?quality=fast',b'invalid audio')[0],400)
+                self.assertEqual(observed,[[]])
+        finally: api.tearDown()
