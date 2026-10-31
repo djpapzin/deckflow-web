@@ -114,3 +114,13 @@ test('cue and loop label rows fit compact desktop and landscape waveform heights
   assert.ok(badge.baseline<height);assert.ok(badge.baseline>badge.top);
  }
 });
+
+test('all beat-loop buttons isolate keyboard activation from transport',()=>{
+ const deck={state:{id:'A',track:{duration:45},hotCues:Array(5).fill(null),cueNorm:0},grid:{bpm:120},stemMode:'full',stemStatus:'',position:0};
+ const loops=buttons(panel(deck)).filter(b=>/^Deck A \d+ beat loop$/.test(b['aria-label']||''));
+ assert.equal(loops.length,6);
+ for(const button of loops) {
+  let stopped=false;button.onKeyDown({key:' ',stopPropagation(){stopped=true;}});
+  assert.equal(stopped,true);
+ }
+});

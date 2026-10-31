@@ -189,6 +189,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
             Math.abs((deck.state.loopOut-deck.state.loopIn)*track.duration*deck.grid.bpm/60-beats)<.01;
           return <button key={beats} className={`btn ghost ${active ? 'active' : ''}`} aria-pressed={!!active}
             aria-label={`${label} ${beats} beat loop`} disabled={!track || !deck.grid || syncLocked || beats*60/deck.grid.bpm>track.duration}
+            onKeyDown={e => e.stopPropagation()}
             onClick={() => active ? deck.loopAction('TOGGLE_LOOP') : deck.beatLoop(beats)}>{beats}</button>;
         })}
       </div>
