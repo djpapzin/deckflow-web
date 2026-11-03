@@ -10,7 +10,8 @@ test('stem switches only change gains; retirement disconnects processors',async(
  const gain=()=>({gain:{value:0,cancelScheduledValues(){},setValueAtTime(v){this.value=v;},setTargetAtTime(v){this.value=v;values.push(v);}},connect(){},disconnect(){}});
  const ctx={currentTime:10,createGain:gain};const original=gain(),output=gain();
  const factory=async()=>({addBuffers:async()=>{},connect(){},disconnect(){},dispose:async()=>{disposed++;}});
- const Class=new Function('SignalsmithStretch','stemGains',src+'\nreturn StemPlayback;')(factory,stemGains);
+ const EchoNode=class { port={postMessage(){}}; connect(){} disconnect(){} };
+ const Class=new Function('SignalsmithStretch','stemGains','AudioWorkletNode',src+'\nreturn StemPlayback;')(factory,stemGains,EchoNode);
  const player={setCompanions(nodes){attachments++;assert.ok(nodes.length===0||nodes.length===4);}};
  const stems=new Class(ctx,output,original,player,()=>.2);stems.reset();
  const buffer={numberOfChannels:2,getChannelData:()=>new Float32Array(100)};

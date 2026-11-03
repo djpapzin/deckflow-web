@@ -6,10 +6,11 @@ export const STEM_MODES = [
   { id: 'vocal-reprise', label: 'VOCAL REPRISE' },
   { id: 'instrumental-reprise', label: 'INSTRUMENTAL REPRISE' },
 ] as const;
-export type StemMode = typeof STEM_MODES[number]['id'];
+export type StemMode = typeof STEM_MODES[number]['id'] | 'silent';
 /** Original, vocals, drums, bass, other. Reprises retain bass and melody. */
 export function stemGains(mode: StemMode): number[] {
   switch (mode) {
+    case 'silent': return [0,0,0,0,0];
     case 'full': return [1,0,0,0,0];
     case 'instrumental': return [0,0,1,1,1];
     case 'acapella': return [0,1,0,0,0];

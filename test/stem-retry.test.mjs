@@ -7,7 +7,7 @@ test('failed Best Quality retries Best, while loading a new track returns to Fas
  const qualities=[];
  const rt={stems:{A:{reset(){},token(){return 1;}}},scratch:{A:{select(){}}}};
  const names=['useCallback','useEffect','useReducer','useRef','useState','getRuntime','decodeTrack','publishTrack','initialDeckState','reducer','clamp01','beatGridKey','readBeatGrid','saveBeatGrid','prepareStems'];
- const values=[f=>f,()=>{},(_r,id,init)=>[init(id),()=>{}],v=>({current:v}),v=>[v,()=>{}],()=>rt,async()=>({analysisPcm:new Float32Array(1)}),async()=>({duration:100}),id=>({id}),()=>{},v=>v,async()=>null,()=>null,()=>{},async(_file,_rt,_id,_token,_signal,_status,quality)=>{qualities.push(quality);if(quality==='best')throw Error('test upgrade failure');}];
+ const values=[f=>f,()=>{},(_r,id,init)=>[init(id),()=>{}],v=>({current:v}),v=>[v,()=>{}],()=>rt,async()=>({analysisPcm:new Float32Array(1)}),async()=>({duration:100}),id=>({id,seekGen:0}),(s,a)=>a.type==='LOAD'?{...s,track:a.track,seekGen:s.seekGen+1,baseNorm:0}:s,v=>v,async()=>null,()=>null,()=>{},async(_file,_rt,_id,_token,_signal,_status,quality)=>{qualities.push(quality);if(quality==='best')throw Error('test upgrade failure');}];
  const hook=new Function(...names,source+'\nreturn useDeck;')(...values);
  const deck=hook('A',true);
  await deck.load({name:'song'});await Promise.resolve();
