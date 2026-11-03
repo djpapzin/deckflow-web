@@ -212,7 +212,7 @@ export default function App() {
           <Waveform peaks={deck.state.track?.peaks ?? null} position={deck.position} onSeek={deck.seek}
             cueNorm={deck.state.cueNorm} hotCues={deck.state.hotCues} loopIn={deck.state.loopIn} loopOut={deck.state.loopOut}
             loopEnabled={deck.state.loopEnabled} label={`Deck ${deck.state.id} scrolling rhythm waveform`}
-            grid={deck.grid} duration={deck.state.track?.duration ?? 0} detailSeconds={8 * deck.state.tempo}
+            grid={deck.grid} phraseBars={deck.phraseBars} duration={deck.state.track?.duration ?? 0} detailSeconds={8 * deck.state.tempo}
             color={deck.state.id === 'A' ? '#36a9ff' : '#ff5265'} />
         </div>)}
       </section>

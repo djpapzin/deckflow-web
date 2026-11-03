@@ -3,14 +3,22 @@ import SignalsmithStretch from './vendor/SignalsmithStretch.mjs';
 import type { DeckPlayer } from './playback';
 import type { StretchNode } from './vendor/SignalsmithStretch.mjs';
 
+export function supportsVocalEchoTempo(bpm: number) {
+  return Number.isFinite(bpm) && bpm >= 30;
+}
+
 /** All stem versions use the same deck timeline; switching only changes gains. */
 export class StemPlayback {
   private nodes: StretchNode[] = [];
   private gains: GainNode[] = [];
   private generation = 0;
+  private echo: AudioWorkletNode | null = null;
   ready = false;
   constructor(private ctx: AudioContext, private output: GainNode, private original: GainNode, private player: DeckPlayer, private lookAhead: () => number) {}
   reset() {
+    this.echo?.port.postMessage('clear');
+    this.echo?.disconnect();
+    this.echo = null;
     this.generation++; this.ready = false; this.player.setCompanions([]);
     for (const node of this.nodes) { void node.dispose(); node.disconnect(); }
     this.nodes = []; this.gains.forEach(g => g.disconnect()); this.gains = [];
@@ -28,11 +36,24 @@ export class StemPlayback {
         const gain = this.ctx.createGain(); gain.gain.value = 0; gains.push(gain); node.connect(gain); gain.connect(this.output);
       }
       if (this.generation !== localGen || generation !== localGen) throw new Error('Track changed');
+      const echo = new AudioWorkletNode(this.ctx, 'vocal-echo', {
+        numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2],
+      });
+      nodes[0].connect(echo);
+      echo.connect(this.output);
+      this.echo = echo;
       this.nodes = nodes; this.gains = gains;
       this.player.setCompanions(nodes, this.ctx.currentTime + this.lookAhead()); this.ready = true;
     } catch (error) { nodes.forEach(n => { void n.dispose(); n.disconnect(); }); gains.forEach(g => g.disconnect()); throw error; }
   }
   token() { return this.generation; }
+  vocalEchoOut(bpm: number) {
+    if (!this.ready || !supportsVocalEchoTempo(bpm)) return false;
+    if (!this.echo) return false;
+    this.echo.port.postMessage({ seconds: 60 / bpm });
+    return true;
+  }
+  clearEcho() { this.echo?.port.postMessage('clear'); }
   select(mode: StemMode) {
     if (!this.ready) return;
     const now = this.ctx.currentTime;

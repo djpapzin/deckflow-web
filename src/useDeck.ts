@@ -6,6 +6,7 @@ import { initialDeckState, METER_EVENT_SUFFIX } from './deck';
 import { reducer, clamp01, type EqBand, type Action } from './transport';
 import type { BeatGrid } from './bpmAnalysis';
 import { beatGridKey, readBeatGrid, saveBeatGrid } from './savedBeatGrid';
+import { supportsVocalEchoTempo } from './stemPlayback';
 import type { StemMode } from './stemModes';
 import { prepareStems } from './stemClient';
 import type { StemQuality } from './stemProgress';
@@ -41,6 +42,9 @@ export function useDeck(id: string, audioReady: boolean) {
   }, [id]);
   useEffect(() => () => stemAbort.current?.abort(), []);
   const loadGen = useRef(0);
+  const interaction = useRef(0);
+  const [autoCue, setAutoCue] = useState(false);
+  const [phraseBars, setPhraseBars] = useState<8 | 16>(8);
   const scratchGesture = useRef<{ resume: boolean; position: number } | null>(null);
   const ignoreSnapshotsUntil = useRef(0);
   const [grid, setGrid] = useState<BeatGrid | null>(null);
@@ -57,6 +61,8 @@ export function useDeck(id: string, audioReady: boolean) {
 
   // Render optimistically, then discard buffered pre-seek snapshots (50ms polling).
   const transport = useCallback((action: Action) => {
+    interaction.current++;
+    if (action.type === 'SEEK' || action.type === 'HOT_CUE' || action.type === 'CUE_DOWN') getRuntime()?.stems[id].clearEcho();
     const next = reducer(stateRef.current, action);
     stateRef.current = next;
     if (next.seekGen !== state.seekGen) {
@@ -64,7 +70,7 @@ export function useDeck(id: string, audioReady: boolean) {
       ignoreSnapshotsUntil.current = performance.now() + 120;
     }
     dispatch(action);
-  }, [showPosition, state.seekGen]);
+  }, [id, showPosition, state.seekGen]);
 
   useEffect(() => {
     if (!audioReady) return;
@@ -109,7 +115,9 @@ export function useDeck(id: string, audioReady: boolean) {
     if (gen !== loadGen.current) return;
     showPosition(0);
     ignoreSnapshotsUntil.current = performance.now() + 120;
-    dispatch({ type: 'LOAD', track });
+    transport({ type: 'LOAD', track });
+    const loadInteraction = interaction.current;
+    setAutoCue(false);
     lastFile.current = file;
     manualGridKey.current = fileKey;
     void prepare(file, gen);
@@ -123,9 +131,17 @@ export function useDeck(id: string, audioReady: boolean) {
     try {
       const worker = new Worker(new URL('./bpmWorker.ts', import.meta.url), { type: 'module' });
       workerRef.current = worker;
-      worker.onmessage = (event: MessageEvent<{ grid: BeatGrid | null }>) => {
+      worker.onmessage = (event: MessageEvent<{ grid: BeatGrid | null; downbeat: number | null }>) => {
         if (gen !== loadGen.current || workerRef.current !== worker) return;
-        setGrid(event.data.grid);
+        const { grid: analyzed, downbeat } = event.data;
+        setGrid(analyzed && downbeat !== null ? { ...analyzed, phraseAnchor: downbeat } : analyzed);
+        if (downbeat !== null && Number.isFinite(downbeat) && downbeat >= 0 && downbeat < track.duration
+            && interaction.current === loadInteraction && stateRef.current.cueNorm === null) {
+          const position = downbeat / track.duration;
+          transport({ type: 'SEEK', norm: position });
+          transport({ type: 'SET_CUE', position });
+          setAutoCue(true);
+        }
         setAnalysisStatus(event.data.grid ? 'ready' : 'unknown');
         worker.terminate();
       };
@@ -135,7 +151,7 @@ export function useDeck(id: string, audioReady: boolean) {
       };
       worker.postMessage({ samples: decoded.analysisPcm, sampleRate: decoded.analysisSampleRate }, [decoded.analysisPcm.buffer]);
     } catch { setAnalysisStatus('unknown'); }
-  }, [id, showPosition, prepare]);
+  }, [id, showPosition, prepare, transport]);
 
   const upgradeStems = () => {
     const rt = getRuntime(); if (!rt || !lastFile.current) return;
@@ -146,7 +162,18 @@ export function useDeck(id: string, audioReady: boolean) {
   const retryStems = () => { if (lastFile.current) void prepare(lastFile.current, loadGen.current, requestedQualityRef.current); };
   const selectStems = (mode: StemMode) => {
     if (!stemsReady) return;
+    getRuntime()?.stems[id].clearEcho();
     setStemMode(mode); getRuntime()?.stems[id].select(mode); getRuntime()?.scratch[id].select(mode);
+  };
+  const echoBpm = grid ? grid.bpm * state.tempo : 0;
+  const canEcho = supportsVocalEchoTempo(echoBpm) && stemsReady && state.playing && !state.cuePreview && ['full', 'acapella', 'vocal-reprise'].includes(stemMode);
+  const vocalEchoOut = () => {
+    const rt = getRuntime();
+    if (!canEcho || !rt?.stems[id].vocalEchoOut(echoBpm)) return;
+    const mode = stemMode === 'acapella' ? 'silent' : stemMode === 'vocal-reprise' ? 'instrumental-reprise' : 'instrumental';
+    setStemMode(mode);
+    rt.stems[id].select(mode);
+    rt.scratch[id].select(mode);
   };
   const seek = useCallback((norm: number) => transport({ type: 'SEEK', norm }), [transport]);
   const togglePlay = useCallback(async () => {
@@ -165,6 +192,7 @@ export function useDeck(id: string, audioReady: boolean) {
     const rt = getRuntime(); if (!rt || !stateRef.current.track || scratchGesture.current) return;
     const position = positionRef.current;
     scratchGesture.current = { resume: stateRef.current.playing, position };
+    rt.stems[id].clearEcho();
     rt.scratch[id].start(position * stateRef.current.track.duration);
     transport({ type: 'PAUSE' });
   };
@@ -189,7 +217,7 @@ export function useDeck(id: string, audioReady: boolean) {
     document.addEventListener('visibilitychange', hidden);
     return () => { window.removeEventListener('blur', release); document.removeEventListener('visibilitychange', hidden); };
   }, [cueUp, scratchUp]);
-  const setCue = () => dispatch({ type: 'SET_CUE', position: positionRef.current });
+  const setCue = () => { setAutoCue(false); transport({ type: 'SET_CUE', position: positionRef.current }); };
   const jumpCue = () => { if (state.cueNorm !== null) seek(state.cueNorm); };
   const loopAction = (type: 'LOOP_IN' | 'LOOP_OUT' | 'TOGGLE_LOOP' | 'CLEAR_LOOP') =>
     transport({ type, position: positionRef.current });
@@ -205,9 +233,26 @@ export function useDeck(id: string, audioReady: boolean) {
     workerRef.current?.terminate();
     workerRef.current = null;
     const next = { bpm: Math.round(bpm * 10) / 10, offset, confidence: 1 };
-    setGrid(next);
+    const anchor = grid?.phraseAnchor;
+    const period = 60 / next.bpm;
+    const firstBeat = Math.ceil(-offset / period);
+    const lastBeat = Math.ceil((state.track.duration - offset) / period) - 1;
+    const beat = anchor === undefined ? undefined
+      : Math.min(lastBeat, Math.max(firstBeat, Math.round((anchor - offset) / period)));
+    setGrid(beat === undefined || firstBeat > lastBeat ? next
+      : { ...next, phraseAnchor: Math.max(0, offset + beat * period) });
     saveBeatGrid(manualGridKey.current, next);
     setAnalysisStatus('manual');
+  };
+  const setPhraseStart = () => {
+    if (!grid || !state.track) return;
+    const period = 60 / grid.bpm;
+    const position = readPosition() * state.track.duration;
+    const firstBeat = Math.ceil(-grid.offset / period);
+    const beat = Math.max(firstBeat, Math.round((position - grid.offset) / period));
+    const phraseAnchor = Math.max(0, grid.offset + beat * period);
+    if (phraseAnchor >= state.track.duration) return;
+    setGrid({ ...grid, phraseAnchor });
   };
   const tapTempo = () => {
     const now = performance.now();
@@ -232,7 +277,7 @@ export function useDeck(id: string, audioReady: boolean) {
   const toggleKeyLock = () => dispatch({ type: 'KEY_LOCK' });
   const syncTo = (norm: number, tempo: number) => transport({ type: 'SYNC', norm, tempo });
 
-  return { state, position, level, stemStatus, stemsReady, stemsFailed, stemMode, preparedQuality, upgradeStems, retryStems, selectStems, load, togglePlay, seek, setVolume, setEq, setFilter,
+  return { state, position, level, phraseBars, setPhraseBars, setPhraseStart, autoCue, canEcho, vocalEchoOut, stemStatus, stemsReady, stemsFailed, stemMode, preparedQuality, upgradeStems, retryStems, selectStems, load, togglePlay, seek, setVolume, setEq, setFilter,
     setTempo, setCue, jumpCue, cueDown, cueUp, hotCue, scratchDown, scratchMove, scratchUp, loopAction, beatLoop, grid, analysisStatus, manualGrid, tapTempo,
     alignBeat, syncTo, readPosition, follow, toggleKeyLock };
 }

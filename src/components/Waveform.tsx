@@ -25,6 +25,7 @@ interface Props {
   loopEnabled: boolean;
   label: string;
   grid: BeatGrid | null;
+  phraseBars?: 8 | 16;
   duration: number;
   color: string;
   hotCues?: (number | null)[];
@@ -34,7 +35,7 @@ interface Props {
 const CACHE_HEIGHT = 256; // offscreen bitmap height; scaled to the canvas at blit time
 const MIN_WINDOW = 0.02; // closest zoom: 2% of the track visible
 
-export default function Waveform({ peaks, position, onSeek, cueNorm, loopIn, loopOut, loopEnabled, label, grid, duration, color, hotCues = [], detailSeconds }: Props) {
+export default function Waveform({ peaks, position, onSeek, cueNorm, loopIn, loopOut, loopEnabled, label, grid, phraseBars = 8, duration, color, hotCues = [], detailSeconds }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cacheRef = useRef<HTMLCanvasElement | null>(null);
   const [windowFrac, setWindowFrac] = useState(1); // fraction of track visible (1 = all)
@@ -129,6 +130,18 @@ export default function Waveform({ peaks, position, onSeek, cueNorm, loopIn, loo
 
     const xFor = (norm: number) => ((norm * total - start) / win) * cssW;
     if (grid && duration > 0) {
+      if (grid.phraseAnchor !== undefined) {
+        const phrase = phraseBars * 4 * 60 / grid.bpm;
+        const visibleStart = Math.max(0, start / total * duration);
+        const visibleEnd = Math.min(duration, (start + win) / total * duration);
+        const first = Math.ceil((visibleStart - grid.phraseAnchor) / phrase);
+        ctx.fillStyle = '#e6ba60';
+        for (let i = first; grid.phraseAnchor + i * phrase < visibleEnd; i++) {
+          const x = xFor((grid.phraseAnchor + i * phrase) / duration);
+          ctx.fillRect(x - 1, 0, 2, cssH);
+        }
+      }
+
       const period = 60 / grid.bpm;
       const startSec = start / total * duration;
       const endSec = (start + win) / total * duration;
@@ -178,7 +191,7 @@ export default function Waveform({ peaks, position, onSeek, cueNorm, loopIn, loo
     ctx.moveTo(playX, 0);
     ctx.lineTo(playX, cssH);
     ctx.stroke();
-  }, [position, windowFor, peaks, cueNorm, loopIn, loopOut, loopEnabled, grid, duration, hotCues, color]);
+  }, [position, windowFor, peaks, cueNorm, loopIn, loopOut, loopEnabled, grid, phraseBars, duration, hotCues, color]);
 
   useEffect(() => {
     draw();

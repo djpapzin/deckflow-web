@@ -151,13 +151,13 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         </div>
         <span className="analysis-status">{syncLocked ? `SYNC LOCKED · FOLLOWING ${leader}` : deck.analysisStatus === 'analyzing' ? 'ANALYZING BPM…' :
           deck.analysisStatus === 'unknown' ? 'NO STEADY BEAT · SET BPM BELOW' :
-          deck.analysisStatus === 'manual' ? 'MANUAL BEAT GRID' : deck.grid ? 'AUTO BPM · BEAT GRID READY' : CLOUD_STEMS ? 'CLOUD AUDIO PROCESSING' : 'LOCAL AUDIO · NO UPLOADS'}</span>
+          deck.analysisStatus === 'manual' ? 'MANUAL BEAT GRID' : deck.autoCue ? 'AUTO CUE · BEAT ONE' : deck.grid ? 'AUTO BPM · BEAT GRID READY' : CLOUD_STEMS ? 'CLOUD AUDIO PROCESSING' : 'LOCAL AUDIO · NO UPLOADS'}</span>
       </div>
       <div className="waveform-wrap">
         <Waveform peaks={track?.peaks ?? null} position={deck.position} onSeek={deck.seek}
           cueNorm={deck.state.cueNorm} hotCues={deck.state.hotCues} loopIn={deck.state.loopIn} loopOut={deck.state.loopOut}
           loopEnabled={deck.state.loopEnabled} label={`${label} waveform`}
-          grid={deck.grid} duration={track?.duration ?? 0} color={deck.state.id === 'A' ? '#36a9ff' : '#ff5265'} />
+          grid={deck.grid} phraseBars={deck.phraseBars} duration={track?.duration ?? 0} color={deck.state.id === 'A' ? '#36a9ff' : '#ff5265'} />
       </div>
 
       <div className="deck-workbench"><TempoControl deck={deck} locked={syncLocked} />
@@ -200,12 +200,21 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
           <input type="number" aria-label={`${label} track BPM`} min={30} max={300} step={.1}
             key={`${track?.pathL}-${deck.grid?.bpm ?? 'empty'}`} defaultValue={deck.grid?.bpm ?? ''}
             disabled={!track || loading} placeholder="BPM"
-            onBlur={e => { if(e.target.value) deck.manualGrid(Number(e.target.value)); }}
+            onBlur={e => { if(e.target.value && Number(e.target.value) !== deck.grid?.bpm) deck.manualGrid(Number(e.target.value)); }}
             onKeyDown={e => { if(e.key === 'Enter') e.currentTarget.blur(); }} />
         </label>
         <button className="btn ghost" disabled={!deck.grid || deck.grid.bpm < 60} onClick={() => deck.manualGrid(deck.grid!.bpm / 2)}>÷2</button>
         <button className="btn ghost" disabled={!deck.grid || deck.grid.bpm > 150} onClick={() => deck.manualGrid(deck.grid!.bpm * 2)}>×2</button>
         <button className="btn ghost" disabled={!deck.grid} onClick={deck.alignBeat}>Set beat here</button>
+        <button className="btn ghost" disabled={!deck.grid} onKeyDown={e => e.stopPropagation()} onClick={deck.setPhraseStart}>Set phrase start here</button>
+        <label className="bpm-input">Phrase spacing
+          <select aria-label={`${label} phrase spacing`} value={deck.phraseBars ?? 8}
+            onChange={e => deck.setPhraseBars(e.target.value === '16' ? 16 : 8)}>
+            <option value={8}>8 bars</option>
+            <option value={16}>16 bars</option>
+          </select>
+        </label>
+        <span>{deck.grid?.phraseAnchor === undefined ? 'Set a phrase start to show markers' : 'Gold lines mark phrase starts'}</span>
       </div></details>
 
 </div><JogWheel deck={deck} showRemaining={showRemaining} onToggleTime={() => setShowRemaining(value => !value)} /></div>
@@ -214,6 +223,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         {STEM_MODES.map(mode => <button key={mode.id}
           className={`btn ghost ${deck.stemMode === mode.id ? 'active' : ''}`} disabled={!deck.stemsReady}
           aria-pressed={deck.stemMode === mode.id} onClick={() => deck.selectStems(mode.id)}>{mode.label}</button>)}
+        <button className="btn ghost" disabled={!deck.canEcho} onClick={deck.vocalEchoOut}>VOCAL ECHO OUT</button>
         {deck.stemsReady && deck.preparedQuality === 'fast' && <button className="btn ghost"
           title="Prepare this track with two passes. Full Mix plays while preparing."
           onClick={deck.upgradeStems}>BETTER QUALITY</button>}
