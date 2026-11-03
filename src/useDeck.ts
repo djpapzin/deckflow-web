@@ -6,6 +6,7 @@ import { initialDeckState, METER_EVENT_SUFFIX } from './deck';
 import { reducer, clamp01, type EqBand, type Action } from './transport';
 import type { BeatGrid } from './bpmAnalysis';
 import { beatGridKey, readBeatGrid, saveBeatGrid } from './savedBeatGrid';
+import { supportsVocalEchoTempo } from './stemPlayback';
 import type { StemMode } from './stemModes';
 import { prepareStems } from './stemClient';
 import type { StemQuality } from './stemProgress';
@@ -164,10 +165,11 @@ export function useDeck(id: string, audioReady: boolean) {
     getRuntime()?.stems[id].clearEcho();
     setStemMode(mode); getRuntime()?.stems[id].select(mode); getRuntime()?.scratch[id].select(mode);
   };
-  const canEcho = !!grid && stemsReady && state.playing && !state.cuePreview && ['full', 'acapella', 'vocal-reprise'].includes(stemMode);
+  const echoBpm = grid ? grid.bpm * state.tempo : 0;
+  const canEcho = supportsVocalEchoTempo(echoBpm) && stemsReady && state.playing && !state.cuePreview && ['full', 'acapella', 'vocal-reprise'].includes(stemMode);
   const vocalEchoOut = () => {
     const rt = getRuntime();
-    if (!canEcho || !grid || !rt?.stems[id].vocalEchoOut(grid.bpm * state.tempo)) return;
+    if (!canEcho || !rt?.stems[id].vocalEchoOut(echoBpm)) return;
     const mode = stemMode === 'acapella' ? 'silent' : stemMode === 'vocal-reprise' ? 'instrumental-reprise' : 'instrumental';
     setStemMode(mode);
     rt.stems[id].select(mode);

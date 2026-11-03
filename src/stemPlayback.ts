@@ -3,6 +3,10 @@ import SignalsmithStretch from './vendor/SignalsmithStretch.mjs';
 import type { DeckPlayer } from './playback';
 import type { StretchNode } from './vendor/SignalsmithStretch.mjs';
 
+export function supportsVocalEchoTempo(bpm: number) {
+  return Number.isFinite(bpm) && bpm >= 30;
+}
+
 /** All stem versions use the same deck timeline; switching only changes gains. */
 export class StemPlayback {
   private nodes: StretchNode[] = [];
@@ -44,7 +48,7 @@ export class StemPlayback {
   }
   token() { return this.generation; }
   vocalEchoOut(bpm: number) {
-    if (!this.ready || !Number.isFinite(bpm) || bpm < 30) return false;
+    if (!this.ready || !supportsVocalEchoTempo(bpm)) return false;
     if (!this.echo) return false;
     this.echo.port.postMessage({ seconds: 60 / bpm });
     return true;
