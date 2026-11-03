@@ -43,6 +43,7 @@ export function useDeck(id: string, audioReady: boolean) {
   const loadGen = useRef(0);
   const interaction = useRef(0);
   const [autoCue, setAutoCue] = useState(false);
+  const [phraseBars, setPhraseBars] = useState<8 | 16>(8);
   const scratchGesture = useRef<{ resume: boolean; position: number } | null>(null);
   const ignoreSnapshotsUntil = useRef(0);
   const [grid, setGrid] = useState<BeatGrid | null>(null);
@@ -131,8 +132,8 @@ export function useDeck(id: string, audioReady: boolean) {
       workerRef.current = worker;
       worker.onmessage = (event: MessageEvent<{ grid: BeatGrid | null; downbeat: number | null }>) => {
         if (gen !== loadGen.current || workerRef.current !== worker) return;
-        setGrid(event.data.grid);
-        const { downbeat } = event.data;
+        const { grid: analyzed, downbeat } = event.data;
+        setGrid(analyzed && downbeat !== null ? { ...analyzed, phraseAnchor: downbeat } : analyzed);
         if (downbeat !== null && Number.isFinite(downbeat) && downbeat >= 0 && downbeat < track.duration
             && interaction.current === loadInteraction && stateRef.current.cueNorm === null) {
           const position = downbeat / track.duration;
@@ -234,6 +235,16 @@ export function useDeck(id: string, audioReady: boolean) {
     saveBeatGrid(manualGridKey.current, next);
     setAnalysisStatus('manual');
   };
+  const setPhraseStart = () => {
+    if (!grid || !state.track) return;
+    const period = 60 / grid.bpm;
+    const position = readPosition() * state.track.duration;
+    const firstBeat = Math.ceil(-grid.offset / period);
+    const beat = Math.max(firstBeat, Math.round((position - grid.offset) / period));
+    const phraseAnchor = Math.max(0, grid.offset + beat * period);
+    if (phraseAnchor >= state.track.duration) return;
+    setGrid({ ...grid, phraseAnchor });
+  };
   const tapTempo = () => {
     const now = performance.now();
     const previous = taps.current[taps.current.length - 1];
@@ -257,7 +268,7 @@ export function useDeck(id: string, audioReady: boolean) {
   const toggleKeyLock = () => dispatch({ type: 'KEY_LOCK' });
   const syncTo = (norm: number, tempo: number) => transport({ type: 'SYNC', norm, tempo });
 
-  return { state, position, level, autoCue, canEcho, vocalEchoOut, stemStatus, stemsReady, stemsFailed, stemMode, preparedQuality, upgradeStems, retryStems, selectStems, load, togglePlay, seek, setVolume, setEq, setFilter,
+  return { state, position, level, phraseBars, setPhraseBars, setPhraseStart, autoCue, canEcho, vocalEchoOut, stemStatus, stemsReady, stemsFailed, stemMode, preparedQuality, upgradeStems, retryStems, selectStems, load, togglePlay, seek, setVolume, setEq, setFilter,
     setTempo, setCue, jumpCue, cueDown, cueUp, hotCue, scratchDown, scratchMove, scratchUp, loopAction, beatLoop, grid, analysisStatus, manualGrid, tapTempo,
     alignBeat, syncTo, readPosition, follow, toggleKeyLock };
 }

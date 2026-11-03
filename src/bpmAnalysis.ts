@@ -1,6 +1,6 @@
 // Small teaching detector: low-band energy flux -> autocorrelation -> beat phase.
 // Works best on steady percussion. Half/double-time and changing tempo need correction.
-export interface BeatGrid { bpm: number; offset: number; confidence: number }
+export interface BeatGrid { bpm: number; offset: number; confidence: number; phraseAnchor?: number }
 export function detectBpm(samples: Float32Array, sampleRate: number): BeatGrid | null {
   if (samples.length / sampleRate < 3) return null;
   const hop = Math.max(1, Math.round(sampleRate / 200));
