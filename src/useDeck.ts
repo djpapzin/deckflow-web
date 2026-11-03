@@ -231,7 +231,14 @@ export function useDeck(id: string, audioReady: boolean) {
     workerRef.current?.terminate();
     workerRef.current = null;
     const next = { bpm: Math.round(bpm * 10) / 10, offset, confidence: 1 };
-    setGrid(next);
+    const anchor = grid?.phraseAnchor;
+    const period = 60 / next.bpm;
+    const firstBeat = Math.ceil(-offset / period);
+    const lastBeat = Math.ceil((state.track.duration - offset) / period) - 1;
+    const beat = anchor === undefined ? undefined
+      : Math.min(lastBeat, Math.max(firstBeat, Math.round((anchor - offset) / period)));
+    setGrid(beat === undefined || firstBeat > lastBeat ? next
+      : { ...next, phraseAnchor: Math.max(0, offset + beat * period) });
     saveBeatGrid(manualGridKey.current, next);
     setAnalysisStatus('manual');
   };
