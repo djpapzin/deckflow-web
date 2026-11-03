@@ -157,7 +157,7 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         <Waveform peaks={track?.peaks ?? null} position={deck.position} onSeek={deck.seek}
           cueNorm={deck.state.cueNorm} hotCues={deck.state.hotCues} loopIn={deck.state.loopIn} loopOut={deck.state.loopOut}
           loopEnabled={deck.state.loopEnabled} label={`${label} waveform`}
-          grid={deck.grid} duration={track?.duration ?? 0} color={deck.state.id === 'A' ? '#36a9ff' : '#ff5265'} />
+          grid={deck.grid} phraseBars={deck.phraseBars} duration={track?.duration ?? 0} color={deck.state.id === 'A' ? '#36a9ff' : '#ff5265'} />
       </div>
 
       <div className="deck-workbench"><TempoControl deck={deck} locked={syncLocked} />
@@ -206,6 +206,15 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
         <button className="btn ghost" disabled={!deck.grid || deck.grid.bpm < 60} onClick={() => deck.manualGrid(deck.grid!.bpm / 2)}>÷2</button>
         <button className="btn ghost" disabled={!deck.grid || deck.grid.bpm > 150} onClick={() => deck.manualGrid(deck.grid!.bpm * 2)}>×2</button>
         <button className="btn ghost" disabled={!deck.grid} onClick={deck.alignBeat}>Set beat here</button>
+        <button className="btn ghost" disabled={!deck.grid} onClick={deck.setPhraseStart}>Set phrase start here</button>
+        <label className="bpm-input">Phrase spacing
+          <select aria-label={`${label} phrase spacing`} value={deck.phraseBars ?? 8}
+            onChange={e => deck.setPhraseBars(e.target.value === '16' ? 16 : 8)}>
+            <option value={8}>8 bars</option>
+            <option value={16}>16 bars</option>
+          </select>
+        </label>
+        <span>{deck.grid?.phraseAnchor === undefined ? 'Set a phrase start to show markers' : 'Gold lines mark phrase starts'}</span>
       </div></details>
 
 </div><JogWheel deck={deck} showRemaining={showRemaining} onToggleTime={() => setShowRemaining(value => !value)} /></div>
