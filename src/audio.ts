@@ -100,6 +100,7 @@ async function buildAudio(ctx: AudioContext): Promise<AudioRuntime> {
     const scratch: Record<string, ScratchPlayer> = {};
     const stems: Record<string, StemPlayback> = {};
     await ctx.audioWorklet.addModule(`${import.meta.env.BASE_URL}scratch-worklet.js`);
+    await ctx.audioWorklet.addModule(`${import.meta.env.BASE_URL}vocal-echo-worklet.js`);
     let latency = .12;
     for (const [i, id] of ['A', 'B'].entries()) {
       const stretch = await SignalsmithStretch(ctx, {
