@@ -200,13 +200,13 @@ export default function DeckPanel({ deck, label, ensureAudio, canSync, onSelect,
           <input type="number" aria-label={`${label} track BPM`} min={30} max={300} step={.1}
             key={`${track?.pathL}-${deck.grid?.bpm ?? 'empty'}`} defaultValue={deck.grid?.bpm ?? ''}
             disabled={!track || loading} placeholder="BPM"
-            onBlur={e => { if(e.target.value) deck.manualGrid(Number(e.target.value)); }}
+            onBlur={e => { if(e.target.value && Number(e.target.value) !== deck.grid?.bpm) deck.manualGrid(Number(e.target.value)); }}
             onKeyDown={e => { if(e.key === 'Enter') e.currentTarget.blur(); }} />
         </label>
         <button className="btn ghost" disabled={!deck.grid || deck.grid.bpm < 60} onClick={() => deck.manualGrid(deck.grid!.bpm / 2)}>÷2</button>
         <button className="btn ghost" disabled={!deck.grid || deck.grid.bpm > 150} onClick={() => deck.manualGrid(deck.grid!.bpm * 2)}>×2</button>
         <button className="btn ghost" disabled={!deck.grid} onClick={deck.alignBeat}>Set beat here</button>
-        <button className="btn ghost" disabled={!deck.grid} onClick={deck.setPhraseStart}>Set phrase start here</button>
+        <button className="btn ghost" disabled={!deck.grid} onKeyDown={e => e.stopPropagation()} onClick={deck.setPhraseStart}>Set phrase start here</button>
         <label className="bpm-input">Phrase spacing
           <select aria-label={`${label} phrase spacing`} value={deck.phraseBars ?? 8}
             onChange={e => deck.setPhraseBars(e.target.value === '16' ? 16 : 8)}>
