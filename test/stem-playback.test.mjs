@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import ts from 'typescript';
 const modesCode=ts.transpileModule(readFileSync(new URL('../src/stemModes.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText;
 const {stemGains}=await import(`data:text/javascript;base64,${Buffer.from(modesCode).toString('base64')}`);
-const src=ts.transpileModule(readFileSync(new URL('../src/stemPlayback.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2020}}).outputText.replace(/^import .*;$/gm,'').replace('export class','class');
+const src=ts.transpileModule(readFileSync(new URL('../src/stemPlayback.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2020}}).outputText.replace(/^import .*;$/gm,'').replace('export class','class').replace('export function','function');
 test('stem switches only change gains; retirement disconnects processors',async()=>{
  let disposed=0,attachments=0; const values=[];
  const gain=()=>({gain:{value:0,cancelScheduledValues(){},setValueAtTime(v){this.value=v;},setTargetAtTime(v){this.value=v;values.push(v);}},connect(){},disconnect(){}});
